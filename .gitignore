@@ -12,8 +12,8 @@ __pycache__/
 .coverage
 htmlcov/
 
-apps/api/data/uploads/*
-!apps/api/data/uploads/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
 
 .cache/
 *.log

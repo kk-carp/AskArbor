@@ -1,6 +1,6 @@
 ---
 description: MVP 自动化测试范围与隔离验收规范
-globs: apps/api/tests/**/*.py
+globs: tests/**/*.py
 alwaysApply: false
 ---
 
