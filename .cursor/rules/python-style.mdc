@@ -1,0 +1,22 @@
+---
+description: FastAPI 与 Python 模块的代码风格和边界
+globs: apps/api/**/*.py
+alwaysApply: false
+---
+
+# Python 开发规范
+
+- 使用 Python 3.11+；公开函数和 Pydantic/SQLAlchemy 字段必须有类型标注。
+- 使用清晰的英文变量、函数和模块名；注释说明“为什么”，不要复述代码。
+- 函数保持单一职责；优先早返回，避免超过三层嵌套。
+- 路由只做 HTTP 校验和响应转换，不写 SQL、切片、Embedding 或 Prompt。
+- 业务流程放在 `ingest_service.py`、`qa_service.py`；具体能力放在对应模块。
+- `parsers.py` 不切片、不访问数据库；`retrieve.py` 不生成答案；`generate.py` 不判断权限或命中阈值。
+- 配置统一由 `config.py` 读取；其它模块不得散落调用 `os.getenv()`。
+- BGE-M3 通过 `embed.py` 的统一接口使用，禁止在请求中重复加载模型。
+- 数据库写操作使用事务；入库失败必须回滚切片并将文档置为 `failed`。
+- 捕获具体异常，保留异常链；不得使用空 `except` 或静默吞错。
+- 对外错误不包含密钥、数据库连接串、完整堆栈或内部文件绝对路径。
+- 文件上传必须校验扩展名、大小并净化文件名，禁止路径穿越。
+- DeepSeek 密钥只从环境变量读取，绝不写入代码、日志或测试夹具。
+- 格式遵循 Ruff 默认风格；导入顺序为标准库、第三方、本项目。

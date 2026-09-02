@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>统一知识助手</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", "PingFang SC", sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        color: #222;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      section {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      label {
+        display: block;
+        margin: 0.6rem 0 0.2rem;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+      textarea {
+        width: 100%;
+        min-height: 80px;
+      }
+      .hint {
+        color: #666;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>统一知识助手</h1>
+    <p class="hint">演示页骨架。上传与问答接口尚未实现。</p>
+
+    <section>
+      <h2>上传文档</h2>
+      <label for="space">知识空间</label>
+      <select id="space">
+        <option value="student">student</option>
+        <option value="company">company</option>
+      </select>
+      <label for="file">文件（md / txt / pdf / docx）</label>
+      <input id="file" type="file" />
+      <p><button type="button" disabled>上传</button></p>
+    </section>
+
+    <section>
+      <h2>提问</h2>
+      <label for="role">模拟身份</label>
+      <select id="role">
+        <option value="student">student</option>
+        <option value="employee">employee</option>
+        <option value="teaching">teaching</option>
+      </select>
+      <label for="question">问题</label>
+      <textarea id="question" placeholder="输入问题"></textarea>
+      <p><button type="button" disabled>提问</button></p>
+      <h3>答案</h3>
+      <p id="answer">尚未实现</p>
+      <h3>来源</h3>
+      <ul id="sources"></ul>
+    </section>
+  </body>
+</html>
