@@ -13,10 +13,10 @@ class AskResult:
 
 
 def answer_question(role: str, question: str) -> AskResult:
-    """Answer from the role's allowed spaces, or refuse without calling DeepSeek.
+    """在角色允许空间内回答问题，未命中时不调用 DeepSeek。
 
-    Flow: role → allowed spaces → query vector → isolated search → hit check.
-    Miss: return MISS_ANSWER, hit=false, empty sources. Hit: generate, then
-    build at most 3 deduplicated sources from retrieved records.
+    流程：角色 → 允许空间 → 问题向量 → 隔离检索 → 命中判断。
+    未命中：返回固定拒答、hit=false、sources 为空。
+    命中：调用生成模块，并基于召回记录去重后返回最多 3 条来源。
     """
     raise NotImplementedError

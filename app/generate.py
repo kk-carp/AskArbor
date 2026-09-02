@@ -2,11 +2,10 @@ from app.retrieve import RetrievedChunk
 
 
 def generate_answer(question: str, chunks: list[RetrievedChunk]) -> str:
-    """Call DeepSeek with the question and retrieved chunks; return answer text.
+    """将问题与召回片段发送给 DeepSeek，并返回答案文本。
 
-    Prompt constraints: answer only from the provided chunks; if they are
-    insufficient or conflicting, say so; do not invent policies, steps,
-    grades, or sources. This module does not retrieve, judge hits, or
-    produce source links.
+    提示词约束：只能依据提供片段回答；片段不足或冲突时明确说明；
+    不得编造制度、步骤、成绩或来源。
+    本模块不负责检索、命中判断，也不负责生成来源链接。
     """
     raise NotImplementedError

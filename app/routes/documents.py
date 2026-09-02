@@ -10,5 +10,5 @@ async def upload_document(
     space: str = Form(),
     file: UploadFile = File(),
 ) -> DocumentResponse:
-    """Accept a multipart file and space, then ingest it."""
+    """接收 multipart 文件与空间参数，并执行入库流程。"""
     raise HTTPException(status_code=501, detail="Not implemented")

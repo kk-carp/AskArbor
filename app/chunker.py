@@ -2,11 +2,10 @@ import re
 
 
 def split_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
-    """Split cleaned text into ordered overlapping character windows.
+    """将清洗后的文本切成有序的重叠字符窗口。
 
-    Collapse consecutive whitespace, drop empty fragments, and keep about
-    `overlap` characters between adjacent chunks. MVP does not use heading
-    or semantic splitting.
+    会压缩连续空白、丢弃空片段，并保持相邻切片约 `overlap` 字符重叠。
+    MVP 阶段不做标题感知或语义切片。
     """
     if chunk_size <= 0:
         raise ValueError("chunk_size must be greater than 0")
@@ -15,10 +14,12 @@ def split_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str
     if overlap >= chunk_size:
         raise ValueError("overlap must be smaller than chunk_size")
 
+    # 统一压缩空白字符，保证不同文档格式下切片边界稳定。
     cleaned = re.sub(r"\s+", " ", text).strip()
     if not cleaned:
         return []
 
+    # 步长决定相邻切片的重叠长度。
     step = chunk_size - overlap
     chunks: list[str] = []
     start = 0

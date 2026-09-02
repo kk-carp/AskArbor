@@ -21,6 +21,11 @@ def test_get_allowed_spaces_raises_for_invalid_role(invalid_role: str) -> None:
         get_allowed_spaces(invalid_role)
 
 
+def test_get_allowed_spaces_raises_for_non_string_role() -> None:
+    with pytest.raises(ValueError, match="Invalid role:"):
+        get_allowed_spaces(None)  # type: ignore[arg-type]
+
+
 def test_get_allowed_spaces_returns_new_list_instance() -> None:
     first = get_allowed_spaces("student")
     second = get_allowed_spaces("student")

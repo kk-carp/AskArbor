@@ -1,1 +1,1 @@
-"""Unit tests for hit/miss behavior and DeepSeek call gating. Implementation pending."""
+"""问答命中/未命中与 DeepSeek 调用门控测试（待补充实现）。"""

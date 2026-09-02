@@ -12,9 +12,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # TODO: init_db(); load BGE-M3 once
+    # TODO: 初始化数据库；仅加载一次 BGE-M3。
     yield
-    # TODO: release embedding and database resources
+    # TODO: 释放向量模型与数据库资源。
 
 
 app = FastAPI(

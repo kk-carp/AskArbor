@@ -1,1 +1,1 @@
-"""Integration tests for ingest persistence and space-isolated retrieval. Implementation pending."""
+"""入库持久化与按空间隔离检索的集成测试（待补充实现）。"""

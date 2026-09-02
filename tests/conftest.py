@@ -1,1 +1,1 @@
-"""Shared pytest fixtures. Implementation pending."""
+"""pytest 共享夹具（待补充实现）。"""

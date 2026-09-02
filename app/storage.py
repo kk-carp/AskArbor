@@ -1,7 +1,16 @@
-from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePath
+from dataclasses import dataclass
+import re
+import shutil
+from uuid import uuid4
 
 from fastapi import UploadFile
+
+from app.config import settings
+
+ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx"}
+ALLOWED_SPACES = {"student", "company"}
 
 
 @dataclass(frozen=True)
@@ -11,10 +20,52 @@ class StoredFile:
     size: int
 
 
-def save_upload(file: UploadFile, space_id: str) -> StoredFile:
-    """Validate, sanitize, and save an upload under data/uploads/{space_id}/.
+def _sanitize_filename(filename: str) -> str:
+    base_name = PurePath(filename).name
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", base_name).strip("._")
+    return cleaned or "upload"
 
-    Checks extension and size, blocks path traversal, and names the file
-    `{uuid}_{safe_filename}`. Does not parse file content.
+
+def _get_extension(filename: str) -> str:
+    return Path(filename).suffix.lower().lstrip(".")
+
+
+def save_upload(file: UploadFile, space_id: str) -> StoredFile:
+    """校验、净化并保存上传文件到 data/uploads/{space_id}/。
+
+    会校验扩展名与大小、阻止路径穿越，并按 `{uuid}_{safe_filename}`
+    生成保存名。本函数只负责落盘，不解析文件内容。
     """
-    raise NotImplementedError
+    if space_id not in ALLOWED_SPACES:
+        raise ValueError(f"Unsupported space_id: {space_id!r}")
+
+    filename = file.filename or ""
+    if not filename:
+        raise ValueError("Missing upload filename")
+
+    extension = _get_extension(filename)
+    if extension not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"Unsupported file extension: {extension!r}")
+
+    raw_file = file.file
+    current_offset = raw_file.tell()
+    raw_file.seek(0, 2)
+    size = raw_file.tell()
+    # 回绕到文件起点，确保保存时复制完整内容。
+    raw_file.seek(0)
+    if size > settings.max_upload_bytes:
+        raise ValueError("File exceeds max size")
+
+    upload_root = Path(settings.upload_dir)
+    target_dir = upload_root / space_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = _sanitize_filename(filename)
+    stored_name = f"{uuid4()}_{safe_name}"
+    target_path = target_dir / stored_name
+
+    with target_path.open("wb") as output:
+        shutil.copyfileobj(raw_file, output)
+    raw_file.seek(current_offset)
+
+    return StoredFile(path=target_path, original_name=filename, size=size)

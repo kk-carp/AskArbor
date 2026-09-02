@@ -16,9 +16,9 @@ def search_chunks(
     allowed_spaces: list[str],
     top_k: int,
 ) -> list[RetrievedChunk]:
-    """Search ready chunks, filtering spaces in SQL before vector ranking.
+    """检索 ready 状态切片，并在 SQL 中先按空间过滤再做向量排序。
 
-    The WHERE clause must include `chunks.space_id = ANY(:allowed_spaces)`
-    and `documents.status = 'ready'`. Do not rank the full corpus in Python.
+    WHERE 子句必须包含 `chunks.space_id = ANY(:allowed_spaces)` 与
+    `documents.status = 'ready'`，禁止在 Python 层对全量排序结果再过滤。
     """
     raise NotImplementedError

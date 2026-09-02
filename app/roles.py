@@ -6,17 +6,20 @@ ROLE_TO_SPACES: dict[str, list[str]] = {
 
 
 def get_allowed_spaces(role: str) -> list[str]:
-    """Map a simulated role to the spaces it may search.
+    """将模拟身份映射为可检索空间。
 
     student  → ["student"]
     employee → ["company"]
     teaching → ["student", "company"]
 
-    Unknown roles must raise a clear parameter error.
+    未知角色必须抛出明确参数错误。
     """
+    if not isinstance(role, str):
+        raise ValueError(f"Invalid role: {role!r}")
+
     normalized_role = role.strip()
     if not normalized_role or normalized_role not in ROLE_TO_SPACES:
         raise ValueError(f"Invalid role: {role!r}")
 
-    # Return a copy to avoid external mutation of the mapping constants.
+    # 返回副本，避免调用方意外修改全局映射常量。
     return list(ROLE_TO_SPACES[normalized_role])
