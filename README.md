@@ -63,13 +63,17 @@ DEMO_PASSWORD=demo1234
 
 其余参数可先使用默认值（`EMBED_MODEL`、`RETRIEVE_TOP_K`、`RETRIEVE_MIN_SCORE` 等）。
 
+`SECRET_KEY` 与 `DEMO_PASSWORD` **仅用于本地演示**，不要用于生产，也不要提交真实密钥。
+
 启动时会幂等写入三个演示账号（密码均为 `DEMO_PASSWORD`）：
 
-| 用户名 | 含义 | 可检索空间 |
-| --- | --- | --- |
-| `student_demo` | 学员 | `student` |
-| `employee_demo` | 内部员工 | `company` |
-| `teaching_demo` | 教学岗 | `student`、`company` |
+| 用户名 | 含义 | 可检索空间 | 备注 |
+| --- | --- | --- | --- |
+| `student_demo` | 学员 | `student` | 班主任绑定到 `teaching_demo` |
+| `employee_demo` | 内部员工 | `company` | 不可上传文档 |
+| `teaching_demo` | 教学岗 | `student`、`company` | 可上传/下线文档 |
+
+本迭代用户仅种子账号，无开放注册接口。
 
 ## 运行验证
 
@@ -85,12 +89,20 @@ pytest
 Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:8000/health"
 ```
 
-### 3) 上传文档
+### 3) 登录后上传文档
+
+上传需教学岗登录；未登录返回 401，学员/员工返回 403。
 
 ```powershell
-curl.exe -X POST "http://127.0.0.1:8000/documents" `
+curl.exe -c cookies.txt -b cookies.txt -X POST "http://127.0.0.1:8000/login" `
+  -H "Content-Type: application/json" `
+  -d "{\"username\":\"teaching_demo\",\"password\":\"demo1234\"}"
+
+curl.exe -c cookies.txt -b cookies.txt -X POST "http://127.0.0.1:8000/documents" `
   -F "space=student" `
   -F "file=@D:\path\to\course.md"
+
+curl.exe -c cookies.txt -b cookies.txt -X GET "http://127.0.0.1:8000/documents"
 ```
 
 ### 4) 登录后提问
@@ -146,5 +158,6 @@ python .\scripts\run_phase1_eval.py --mode oracle
 
 - 首次启动会下载并加载 `BAAI/bge-m3`，耗时会明显更长。
 - 问答改为登录态：`student_demo` 只能检索 `student`，`employee_demo` 只能检索 `company`，`teaching_demo` 可检索两者。
+- 文档上传/下线仅教学岗（或管理员）；`failed`/`offline` 文档不可检索。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。

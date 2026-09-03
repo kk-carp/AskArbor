@@ -70,7 +70,8 @@
     </section>
 
     <section>
-      <h2>上传文档</h2>
+      <h2>上传与文档管理</h2>
+      <p class="hint">仅教学岗（或管理员）可上传/下线。学员与普通员工无写库权限。</p>
       <label for="space">知识空间</label>
       <select id="space">
         <option value="student">student</option>
@@ -78,8 +79,12 @@
       </select>
       <label for="file">文件（md / txt / pdf / docx）</label>
       <input id="file" type="file" />
-      <p><button id="uploadBtn" type="button">上传</button></p>
+      <p class="row">
+        <button id="uploadBtn" type="button">上传</button>
+        <button id="refreshDocsBtn" type="button">刷新列表</button>
+      </p>
       <p id="uploadStatus" class="hint"></p>
+      <ul id="docList"></ul>
     </section>
 
     <section>
@@ -104,7 +109,9 @@
       const spaceSelect = document.getElementById("space");
       const fileInput = document.getElementById("file");
       const uploadBtn = document.getElementById("uploadBtn");
+      const refreshDocsBtn = document.getElementById("refreshDocsBtn");
       const uploadStatus = document.getElementById("uploadStatus");
+      const docListEl = document.getElementById("docList");
 
       const questionInput = document.getElementById("question");
       const askBtn = document.getElementById("askBtn");
@@ -136,7 +143,72 @@
         }
         const spaces = (currentUser.allowed_spaces || []).join(", ") || "无";
         const teaching = currentUser.is_teaching ? "，教学岗" : "";
-        currentUserEl.textContent = `当前用户：${currentUser.username}（${currentUser.role}${teaching}），可检索空间：${spaces}`;
+        const manage = currentUser.can_manage_documents ? "，可管理文档" : "";
+        const advisor = currentUser.advisor_id ? `，班主任已绑定` : "";
+        currentUserEl.textContent = `当前用户：${currentUser.username}（${currentUser.role}${teaching}${manage}${advisor}），可检索空间：${spaces}`;
+      }
+
+      async function refreshDocuments() {
+        if (!currentUser || !currentUser.can_manage_documents) {
+          docListEl.innerHTML = "<li class='hint'>登录教学岗后可查看文档列表。</li>";
+          return;
+        }
+        try {
+          const response = await fetch("/documents", { credentials: "same-origin" });
+          const data = await response.json();
+          if (response.status === 401 || response.status === 403) {
+            docListEl.innerHTML = `<li class='hint'>${data.detail || "无权限"}</li>`;
+            return;
+          }
+          if (!response.ok) {
+            docListEl.innerHTML = `<li class='hint'>加载失败：${data.detail || "未知错误"}</li>`;
+            return;
+          }
+          if (!Array.isArray(data) || data.length === 0) {
+            docListEl.innerHTML = "<li class='hint'>暂无文档。</li>";
+            return;
+          }
+          docListEl.innerHTML = "";
+          for (const doc of data) {
+            const item = document.createElement("li");
+            const meta = document.createElement("span");
+            meta.textContent = `${doc.title} | ${doc.space_id} | ${doc.status} | chunks=${doc.chunk_count}`;
+            if (doc.error) {
+              meta.textContent += ` | error=${doc.error}`;
+            }
+            item.appendChild(meta);
+            if (doc.status !== "offline") {
+              const offlineBtn = document.createElement("button");
+              offlineBtn.type = "button";
+              offlineBtn.textContent = "下线";
+              offlineBtn.style.marginLeft = "0.5rem";
+              offlineBtn.addEventListener("click", async () => {
+                offlineBtn.disabled = true;
+                try {
+                  const offResp = await fetch(`/documents/${doc.id}/offline`, {
+                    method: "POST",
+                    credentials: "same-origin",
+                  });
+                  const offData = await offResp.json();
+                  if (!offResp.ok) {
+                    setUploadStatus(`下线失败：${offData.detail || "未知错误"}`, true);
+                    return;
+                  }
+                  setUploadStatus(`已下线：${offData.title}`);
+                  await refreshDocuments();
+                } catch (_error) {
+                  setUploadStatus("下线失败：网络异常。", true);
+                } finally {
+                  offlineBtn.disabled = false;
+                }
+              });
+              item.appendChild(offlineBtn);
+            }
+            docListEl.appendChild(item);
+          }
+        } catch (_error) {
+          docListEl.innerHTML = "<li class='hint'>加载文档列表失败：网络异常。</li>";
+        }
       }
 
       async function refreshMe() {
@@ -156,6 +228,7 @@
           }
           currentUser = data;
           renderCurrentUser();
+          await refreshDocuments();
         } catch (_error) {
           currentUser = null;
           renderCurrentUser();
@@ -190,6 +263,7 @@
           passwordInput.value = "";
           renderCurrentUser();
           setAuthStatus("登录成功。");
+          await refreshDocuments();
         } catch (_error) {
           setAuthStatus("登录失败：网络异常。", true);
         } finally {
@@ -213,6 +287,7 @@
           currentUser = null;
           renderCurrentUser();
           setAuthStatus("已退出。");
+          docListEl.innerHTML = "";
         } catch (_error) {
           setAuthStatus("退出失败：网络异常。", true);
         } finally {
@@ -220,7 +295,19 @@
         }
       });
 
+      refreshDocsBtn.addEventListener("click", async () => {
+        await refreshDocuments();
+      });
+
       uploadBtn.addEventListener("click", async () => {
+        if (!currentUser) {
+          setUploadStatus("请先登录。", true);
+          return;
+        }
+        if (!currentUser.can_manage_documents) {
+          setUploadStatus("当前账号无文档管理权限，请使用 teaching_demo。", true);
+          return;
+        }
         const file = fileInput.files?.[0];
         if (!file) {
           setUploadStatus("请先选择文件。", true);
@@ -247,6 +334,7 @@
           setUploadStatus(
             `上传成功：${data.title}，状态 ${data.status}，切片数 ${data.chunk_count}`
           );
+          await refreshDocuments();
         } catch (_error) {
           setUploadStatus("上传失败：网络异常。", true);
         } finally {

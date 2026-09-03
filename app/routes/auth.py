@@ -1,19 +1,28 @@
 from fastapi import APIRouter, HTTPException, Request
 
+from app.domain.membership import get_allowed_spaces_for_user
 from app.errors import ServiceUnavailableError
 from app.schemas import LoginRequest, MeResponse
-from app.services.auth_service import authenticate, clear_session, load_auth_context, set_session_user
-from app.domain.membership import get_allowed_spaces_for_user
+from app.services.auth_service import (
+    AuthUser,
+    authenticate,
+    can_manage_documents,
+    clear_session,
+    load_auth_context,
+    set_session_user,
+)
 
 router = APIRouter(tags=["auth"])
 
 
-def _to_me_response(user_id: str, username: str, role: str, is_teaching: bool) -> MeResponse:
+def _to_me_response(user: AuthUser) -> MeResponse:
     return MeResponse(
-        username=username,
-        role=role,
-        is_teaching=is_teaching,
-        allowed_spaces=get_allowed_spaces_for_user(user_id),
+        username=user.username,
+        role=user.role,
+        is_teaching=user.is_teaching,
+        allowed_spaces=get_allowed_spaces_for_user(user.id),
+        advisor_id=user.advisor_id,
+        can_manage_documents=can_manage_documents(user),
     )
 
 
@@ -27,7 +36,7 @@ async def login(payload: LoginRequest, request: Request) -> MeResponse:
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     set_session_user(request, user.id)
     try:
-        return _to_me_response(user.id, user.username, user.role, user.is_teaching)
+        return _to_me_response(user)
     except ServiceUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -44,7 +53,6 @@ async def me(request: Request) -> MeResponse:
         context = load_auth_context(request)
         if context is None:
             raise HTTPException(status_code=401, detail="未登录")
-        user = context.user
-        return _to_me_response(user.id, user.username, user.role, user.is_teaching)
+        return _to_me_response(context.user)
     except ServiceUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

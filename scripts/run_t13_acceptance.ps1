@@ -98,9 +98,23 @@ try {
     Assert-True ($null -ne $health) "Health check failed: API unreachable."
     Assert-True ($healthReady -eq $true) "Health check failed: API not ready (database/model not healthy)."
 
+    $demoPassword = if ($env:DEMO_PASSWORD) { $env:DEMO_PASSWORD } else { "demo1234" }
+    $adminLogin = @{
+        username = "teaching_demo"
+        password = $demoPassword
+    } | ConvertTo-Json -Depth 5 -Compress
+    $uploadSession = $null
+    Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/login" `
+        -ContentType "application/json; charset=utf-8" `
+        -Body $adminLogin `
+        -SessionVariable uploadSession | Out-Null
+
     $studentUpload = Invoke-RestMethod `
         -Method Post `
         -Uri "$ApiBase/documents" `
+        -WebSession $uploadSession `
         -Form @{ space = "student"; file = Get-Item -LiteralPath $StudentDoc }
     Assert-True ($studentUpload.status -eq "ready") "Student upload status is not ready."
     Assert-True ($studentUpload.chunk_count -gt 0) "Student upload produced no chunks."
@@ -108,6 +122,7 @@ try {
     $companyUpload = Invoke-RestMethod `
         -Method Post `
         -Uri "$ApiBase/documents" `
+        -WebSession $uploadSession `
         -Form @{ space = "company"; file = Get-Item -LiteralPath $CompanyDoc }
     Assert-True ($companyUpload.status -eq "ready") "Company upload status is not ready."
     Assert-True ($companyUpload.chunk_count -gt 0) "Company upload produced no chunks."

@@ -15,6 +15,8 @@ class DocumentStatus(str, Enum):
     processing = "processing"
     ready = "ready"
     failed = "failed"
+    # V1：主动下线后不可检索（与 failed 一样排除在 SQL ready 条件外）
+    offline = "offline"
 
 
 class Space(Base):

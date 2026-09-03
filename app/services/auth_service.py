@@ -18,12 +18,18 @@ class AuthUser:
     username: str
     role: str
     is_teaching: bool
+    advisor_id: str | None = None
 
 
 @dataclass(frozen=True)
 class AuthContext:
     user: AuthUser
     allowed_spaces: list[str]
+
+
+def can_manage_documents(user: AuthUser) -> bool:
+    """文档上传/列表/下线：仅教学岗或管理员。普通学员与员工不可写知识库。"""
+    return user.is_teaching or user.role == "admin"
 
 
 def hash_password(password: str) -> str:
@@ -60,6 +66,7 @@ def _to_auth_user(user: User) -> AuthUser:
         username=user.username,
         role=user.role,
         is_teaching=user.is_teaching,
+        advisor_id=user.advisor_id,
     )
 
 

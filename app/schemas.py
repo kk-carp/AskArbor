@@ -31,6 +31,8 @@ class MeResponse(BaseModel):
     role: str
     is_teaching: bool
     allowed_spaces: list[str]
+    advisor_id: str | None = None
+    can_manage_documents: bool = False
 
 
 class SourceItem(BaseModel):
@@ -51,6 +53,7 @@ class DocumentResponse(BaseModel):
     space_id: str
     status: str
     chunk_count: int
+    error: str | None = None
 
 
 class HealthResponse(BaseModel):

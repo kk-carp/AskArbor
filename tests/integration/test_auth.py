@@ -151,3 +151,27 @@ def test_ask_uses_teaching_membership_spaces(monkeypatch: pytest.MonkeyPatch) ->
 
     assert response.status_code == 200
     assert captured["allowed_spaces"] == ["student", "company"]
+
+
+def test_me_exposes_advisor_and_manage_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = AuthUser(
+        id="user-student",
+        username="student_demo",
+        role="student",
+        is_teaching=False,
+        advisor_id="advisor-1",
+    )
+    monkeypatch.setattr(
+        "app.routes.auth.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+    monkeypatch.setattr("app.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["student"])
+
+    with _client(monkeypatch) as client:
+        # 先写入 session，使 load_auth_context 被调用前有登录态不是必须（已 mock）
+        response = client.get("/me")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["advisor_id"] == "advisor-1"
+    assert body["can_manage_documents"] is False

@@ -27,8 +27,16 @@ DEMO_ACCOUNTS = (
 )
 
 
+def bind_demo_student_advisor(session: Session) -> None:
+    """将 student_demo 的班主任绑定到 teaching_demo。"""
+    teaching = session.scalar(select(User).where(User.username == DEMO_TEACHING_USERNAME))
+    student = session.scalar(select(User).where(User.username == DEMO_STUDENT_USERNAME))
+    if teaching is not None and student is not None:
+        student.advisor_id = teaching.id
+
+
 def seed_demo_users(session: Session) -> None:
-    """幂等写入三个演示账号及其空间成员关系。"""
+    """幂等写入三个演示账号及其空间成员关系，并为学员绑定班主任。"""
     password_hash = hash_password(settings.demo_password)
     for account in DEMO_ACCOUNTS:
         user = session.scalar(select(User).where(User.username == account.username))
@@ -46,6 +54,7 @@ def seed_demo_users(session: Session) -> None:
             user.role = account.role
             user.is_teaching = account.is_teaching
 
+        # 成员关系只由服务端写入；问答不得信任客户端 role
         desired_spaces = set(expected_spaces(role=account.role, is_teaching=account.is_teaching))
         existing_spaces = set(
             session.scalars(select(SpaceMember.space_id).where(SpaceMember.user_id == user.id)).all()
@@ -56,3 +65,5 @@ def seed_demo_users(session: Session) -> None:
             member = session.get(SpaceMember, (user.id, space_id))
             if member is not None:
                 session.delete(member)
+
+    bind_demo_student_advisor(session)

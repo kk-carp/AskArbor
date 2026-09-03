@@ -52,6 +52,7 @@ def search_chunks(
         LIMIT :top_k
         """
     )
+    # 仅 ready 可检索：failed/offline/processing 均被排除，勿在 Python 层再过滤全量结果
 
     with db.SessionLocal() as session:
         rows = session.execute(

@@ -23,6 +23,7 @@ def normalize_space_order(space_ids: list[str]) -> list[str]:
 
 
 def get_allowed_spaces_for_role(role: str) -> list[str]:
+    """按角色名推导「应有」空间（仅种子/兼容用，不参与 /ask 授权）。"""
     if not isinstance(role, str):
         raise ValueError(f"Invalid role: {role!r}")
     normalized_role = role.strip()
@@ -32,7 +33,7 @@ def get_allowed_spaces_for_role(role: str) -> list[str]:
 
 
 def expected_spaces(*, role: str, is_teaching: bool) -> list[str]:
-    """Compute expected spaces for persisted user metadata."""
+    """根据落库用户元数据计算应写入的 space_members。"""
     if is_teaching:
         return ["student", "company"]
     if role == "student":
@@ -43,7 +44,7 @@ def expected_spaces(*, role: str, is_teaching: bool) -> list[str]:
 
 
 def get_allowed_spaces_for_user(user_id: str) -> list[str]:
-    """Read allowed spaces from `space_members` table."""
+    """问答授权唯一入口：从 space_members 读取可检索空间。"""
     db.init_engine()
     if db.SessionLocal is None:
         raise ServiceUnavailableError("数据库会话未初始化")

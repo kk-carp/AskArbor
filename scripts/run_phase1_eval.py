@@ -155,6 +155,15 @@ def upload_sample_doc(client: httpx.Client, api_base: str, path: Path, space: st
         raise RuntimeError(f"Uploaded document has no chunks: {path.name}, payload={payload}")
 
 
+def login_as_teaching_for_upload(client: httpx.Client, api_base: str, password: str) -> None:
+    """入库需教学岗权限；评测上传前先登录 teaching_demo。"""
+    response = client.post(
+        f"{api_base}/login",
+        json={"username": "teaching_demo", "password": password},
+    )
+    response.raise_for_status()
+
+
 def is_refusal(payload: dict[str, Any]) -> bool:
     return (
         payload.get("hit") is False
@@ -382,12 +391,14 @@ def main() -> None:
     if args.mode == "live":
         with httpx.Client(timeout=args.timeout_sec) as client:
             wait_for_health_ready(client, api_base=api_base, timeout_sec=args.health_timeout_sec)
-        if not args.skip_upload:
-            upload_sample_doc(client, api_base, student_doc, "student")
-            upload_sample_doc(client, api_base, company_doc, "company")
-        results = [
-            run_case(client, api_base, case, demo_password=args.demo_password) for case in cases
-        ]
+            if not args.skip_upload:
+                login_as_teaching_for_upload(client, api_base, args.demo_password)
+                upload_sample_doc(client, api_base, student_doc, "student")
+                upload_sample_doc(client, api_base, company_doc, "company")
+            results = [
+                run_case(client, api_base, case, demo_password=args.demo_password)
+                for case in cases
+            ]
     else:
         results = [run_oracle_case(case) for case in cases]
 
