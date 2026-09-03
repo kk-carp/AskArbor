@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
+from app.db import init_db
+from app.embed import load_model
 from app.routes import ask, documents, health
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -12,9 +14,11 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # TODO: 初始化数据库；仅加载一次 BGE-M3。
+    # 启动时初始化数据库与向量模型，避免请求阶段重复冷启动。
+    init_db()
+    load_model()
     yield
-    # TODO: 释放向量模型与数据库资源。
+    # 当前 MVP 依赖进程退出释放资源，后续可在此补显式清理。
 
 
 app = FastAPI(

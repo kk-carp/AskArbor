@@ -47,7 +47,7 @@
   </head>
   <body>
     <h1>统一知识助手</h1>
-    <p class="hint">演示页骨架。上传与问答接口尚未实现。</p>
+    <p class="hint">MVP 演示页：上传文档、按身份提问、展示答案与来源。</p>
 
     <section>
       <h2>上传文档</h2>
@@ -58,7 +58,8 @@
       </select>
       <label for="file">文件（md / txt / pdf / docx）</label>
       <input id="file" type="file" />
-      <p><button type="button" disabled>上传</button></p>
+      <p><button id="uploadBtn" type="button">上传</button></p>
+      <p id="uploadStatus" class="hint"></p>
     </section>
 
     <section>
@@ -71,11 +72,115 @@
       </select>
       <label for="question">问题</label>
       <textarea id="question" placeholder="输入问题"></textarea>
-      <p><button type="button" disabled>提问</button></p>
+      <p><button id="askBtn" type="button">提问</button></p>
       <h3>答案</h3>
-      <p id="answer">尚未实现</p>
+      <p id="answer">请先上传文档并提问。</p>
       <h3>来源</h3>
       <ul id="sources"></ul>
+      <p id="askStatus" class="hint"></p>
     </section>
+    <script>
+      const spaceSelect = document.getElementById("space");
+      const fileInput = document.getElementById("file");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const uploadStatus = document.getElementById("uploadStatus");
+
+      const roleSelect = document.getElementById("role");
+      const questionInput = document.getElementById("question");
+      const askBtn = document.getElementById("askBtn");
+      const askStatus = document.getElementById("askStatus");
+      const answerEl = document.getElementById("answer");
+      const sourcesEl = document.getElementById("sources");
+
+      function setUploadStatus(text, isError = false) {
+        uploadStatus.textContent = text;
+        uploadStatus.style.color = isError ? "#b00020" : "#666";
+      }
+
+      function setAskStatus(text, isError = false) {
+        askStatus.textContent = text;
+        askStatus.style.color = isError ? "#b00020" : "#666";
+      }
+
+      uploadBtn.addEventListener("click", async () => {
+        const file = fileInput.files?.[0];
+        if (!file) {
+          setUploadStatus("请先选择文件。", true);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("space", spaceSelect.value);
+        formData.append("file", file);
+
+        uploadBtn.disabled = true;
+        setUploadStatus("上传中...");
+        try {
+          const response = await fetch("/documents", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            setUploadStatus(`上传失败：${data.detail || "未知错误"}`, true);
+            return;
+          }
+          setUploadStatus(
+            `上传成功：${data.title}，状态 ${data.status}，切片数 ${data.chunk_count}`
+          );
+        } catch (_error) {
+          setUploadStatus("上传失败：网络异常。", true);
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      });
+
+      askBtn.addEventListener("click", async () => {
+        const question = questionInput.value.trim();
+        if (!question) {
+          setAskStatus("请输入问题。", true);
+          return;
+        }
+
+        askBtn.disabled = true;
+        setAskStatus("提问中...");
+        answerEl.textContent = "";
+        sourcesEl.innerHTML = "";
+
+        try {
+          const response = await fetch("/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: roleSelect.value,
+              question: question,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            setAskStatus(`提问失败：${data.detail || "未知错误"}`, true);
+            answerEl.textContent = "请求失败";
+            return;
+          }
+
+          answerEl.textContent = data.answer;
+          if (!data.sources || data.sources.length === 0) {
+            sourcesEl.innerHTML = "<li>无来源</li>";
+          } else {
+            for (const source of data.sources) {
+              const item = document.createElement("li");
+              item.textContent = `${source.title} (${source.space_id})`;
+              sourcesEl.appendChild(item);
+            }
+          }
+          setAskStatus(data.hit ? "命中知识库。" : "未命中知识库，已拒答。");
+        } catch (_error) {
+          setAskStatus("提问失败：网络异常。", true);
+          answerEl.textContent = "请求失败";
+        } finally {
+          askBtn.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>
