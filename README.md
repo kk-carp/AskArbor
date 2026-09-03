@@ -13,6 +13,7 @@ app/
   domain/            领域规则（空间授权等）
   infra/             基础能力（解析/切片/检索/生成）
   seed/              演示账号种子
+frontend/            Streamlit 前端（登录 / 文档管理 / 问答）
 tests/
   unit/              单模块测试
   integration/       跨模块集成测试
@@ -45,8 +46,24 @@ uvicorn app.main:app --reload
 
 启动后访问：
 
-- 演示页面：[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+- 演示页面（FastAPI 内置）：[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 - 健康检查：[http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+### Streamlit 前端（三页）
+
+另开终端，在 API 已启动的前提下执行：
+
+```powershell
+streamlit run frontend/app.py
+```
+
+页面：
+
+1. **登录** — 账号登录 / 退出  
+2. **上传与文档管理** — 教学岗上传、列表、下线  
+3. **问答** — 登录态提问（空间由服务端成员关系决定）
+
+侧边栏可修改 API 地址（默认 `http://127.0.0.1:8000`）。Streamlit 通过服务端 `httpx` 携带 Session Cookie 调后端，不依赖浏览器跨域。
 
 ## 配置说明
 

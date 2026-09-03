@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
@@ -19,6 +20,7 @@ class AskRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     question: str = Field(min_length=1)
+    conversation_id: UUID | None = None
 
 
 class LoginRequest(BaseModel):
@@ -45,6 +47,21 @@ class AskResponse(BaseModel):
     answer: str
     hit: bool
     sources: list[SourceItem]
+    conversation_id: UUID | None = None
+
+
+class ConversationItem(BaseModel):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    message_count: int
+
+
+class MessageItem(BaseModel):
+    id: UUID
+    role: str
+    content: str
+    created_at: datetime
 
 
 class DocumentResponse(BaseModel):

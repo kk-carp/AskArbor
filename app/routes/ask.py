@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 from app.errors import ServiceUnavailableError, UpstreamServiceError
 from app.schemas import AskRequest, AskResponse
 from app.services.auth_service import load_auth_context
+from app.services.conversation_service import ConversationNotFoundError
 from app.services.qa_service import answer_question
 
 router = APIRouter(tags=["ask"])
@@ -10,14 +11,21 @@ router = APIRouter(tags=["ask"])
 
 @router.post("/ask", response_model=AskResponse)
 async def ask(payload: AskRequest, request: Request) -> AskResponse:
-    """按登录用户的空间成员关系回答问题；不接受客户端空间参数。"""
+    """按登录用户的空间成员关系回答问题；可选 conversation_id 追问。"""
     try:
         context = load_auth_context(request)
         if context is None:
             raise HTTPException(status_code=401, detail="未登录")
-        result = answer_question(allowed_spaces=context.allowed_spaces, question=payload.question)
+        result = answer_question(
+            allowed_spaces=context.allowed_spaces,
+            question=payload.question,
+            user_id=context.user.id,
+            conversation_id=payload.conversation_id,
+        )
     except HTTPException:
         raise
+    except ConversationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ServiceUnavailableError as exc:
@@ -27,4 +35,9 @@ async def ask(payload: AskRequest, request: Request) -> AskResponse:
     except Exception as exc:
         raise HTTPException(status_code=500, detail="问答处理失败") from exc
 
-    return AskResponse(answer=result.answer, hit=result.hit, sources=result.sources)
+    return AskResponse(
+        answer=result.answer,
+        hit=result.hit,
+        sources=result.sources,
+        conversation_id=result.conversation_id,
+    )

@@ -101,7 +101,7 @@ def test_ask_ignores_forged_role_and_space_ids(monkeypatch: pytest.MonkeyPatch) 
     )
     captured: dict[str, object] = {}
 
-    def _fake_answer(*, allowed_spaces: list[str], question: str) -> AskResult:
+    def _fake_answer(*, allowed_spaces: list[str], question: str, **_kwargs) -> AskResult:
         captured["allowed_spaces"] = list(allowed_spaces)
         captured["question"] = question
         return AskResult(answer="知识库中没有足够依据回答这个问题。", hit=False, sources=[])
@@ -136,7 +136,7 @@ def test_ask_uses_teaching_membership_spaces(monkeypatch: pytest.MonkeyPatch) ->
     )
     captured: dict[str, object] = {}
 
-    def _fake_answer(*, allowed_spaces: list[str], question: str) -> AskResult:
+    def _fake_answer(*, allowed_spaces: list[str], question: str, **_kwargs) -> AskResult:
         captured["allowed_spaces"] = list(allowed_spaces)
         return AskResult(answer="答案", hit=True, sources=[])
 

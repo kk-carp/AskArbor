@@ -31,5 +31,11 @@ class Settings(BaseSettings):
     demo_password: str = "demo1234"
     session_cookie_name: str = "fde_session"
 
+    # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
+    conversation_history_turns: int = 3
+
+    # 生成阶段带入的最近完整轮数（每轮 = user + assistant）
+    conversation_history_turns: int = 3
+
 
 settings = Settings()
