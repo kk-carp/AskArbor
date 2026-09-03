@@ -1,0 +1,58 @@
+from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.domain.membership import expected_spaces
+from app.models import SpaceMember, User
+from app.services.auth_service import hash_password
+
+DEMO_STUDENT_USERNAME = "student_demo"
+DEMO_EMPLOYEE_USERNAME = "employee_demo"
+DEMO_TEACHING_USERNAME = "teaching_demo"
+
+
+@dataclass(frozen=True)
+class DemoAccount:
+    username: str
+    role: str
+    is_teaching: bool
+
+
+DEMO_ACCOUNTS = (
+    DemoAccount(username=DEMO_STUDENT_USERNAME, role="student", is_teaching=False),
+    DemoAccount(username=DEMO_EMPLOYEE_USERNAME, role="employee", is_teaching=False),
+    DemoAccount(username=DEMO_TEACHING_USERNAME, role="employee", is_teaching=True),
+)
+
+
+def seed_demo_users(session: Session) -> None:
+    """幂等写入三个演示账号及其空间成员关系。"""
+    password_hash = hash_password(settings.demo_password)
+    for account in DEMO_ACCOUNTS:
+        user = session.scalar(select(User).where(User.username == account.username))
+        if user is None:
+            user = User(
+                username=account.username,
+                password_hash=password_hash,
+                role=account.role,
+                is_teaching=account.is_teaching,
+            )
+            session.add(user)
+            session.flush()
+        else:
+            user.password_hash = password_hash
+            user.role = account.role
+            user.is_teaching = account.is_teaching
+
+        desired_spaces = set(expected_spaces(role=account.role, is_teaching=account.is_teaching))
+        existing_spaces = set(
+            session.scalars(select(SpaceMember.space_id).where(SpaceMember.user_id == user.id)).all()
+        )
+        for space_id in desired_spaces - existing_spaces:
+            session.add(SpaceMember(user_id=user.id, space_id=space_id))
+        for space_id in existing_spaces - desired_spaces:
+            member = session.get(SpaceMember, (user.id, space_id))
+            if member is not None:
+                session.delete(member)

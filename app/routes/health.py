@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from app import db
-from app.embed import is_loaded
+from app.infra.embed import is_loaded
 from app.schemas import HealthResponse
 
 router = APIRouter(tags=["health"])

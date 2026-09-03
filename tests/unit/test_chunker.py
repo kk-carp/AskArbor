@@ -1,6 +1,6 @@
 import pytest
 
-from app.chunker import split_text
+from app.infra.chunker import split_text
 
 
 def test_split_text_returns_empty_for_blank_input() -> None:

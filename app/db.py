@@ -41,6 +41,9 @@ def init_db() -> None:
         for space_id, name in (("student", "student"), ("company", "company")):
             if space_id not in existing_spaces:
                 session.add(Space(id=space_id, name=name))
+        from app.seed.demo_users import seed_demo_users
+
+        seed_demo_users(session)
         session.commit()
 
 

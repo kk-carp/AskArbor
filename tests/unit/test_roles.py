@@ -1,6 +1,6 @@
 import pytest
 
-from app.roles import get_allowed_spaces
+from app.domain.roles_compat import get_allowed_spaces
 
 
 @pytest.mark.parametrize(

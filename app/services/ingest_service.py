@@ -3,14 +3,14 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from app.chunker import split_text
-from app.config import settings
 from app import db
-from app.embed import encode_documents, is_loaded
+from app.config import settings
 from app.errors import ServiceUnavailableError
+from app.infra.chunker import split_text
+from app.infra.embed import encode_documents, is_loaded
+from app.infra.parsers import parse_document
+from app.infra.storage import save_upload
 from app.models import Chunk, Document, DocumentStatus
-from app.parsers import parse_document
-from app.storage import save_upload
 
 
 @dataclass(frozen=True)
@@ -23,12 +23,7 @@ class DocumentResult:
 
 
 def ingest_document(file: UploadFile, space_id: str) -> DocumentResult:
-    """编排上传 → 解析 → 切片 → 向量化 → 持久化流程。
-
-    顺序：校验空间、保存文件、写入 documents(processing)、解析、
-    切片、编码、写入 chunks、更新 documents(ready)。
-    若出现可预期失败，应回滚切片写入、标记文档 failed，且不泄露敏感信息。
-    """
+    """编排上传 → 解析 → 切片 → 向量化 → 持久化流程。"""
     if not is_loaded():
         raise ServiceUnavailableError("向量模型未加载")
 

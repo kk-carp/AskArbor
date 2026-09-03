@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
 from app.config import settings
-from app.embed import encode_query, is_loaded
 from app.errors import ServiceUnavailableError
-from app.generate import generate_answer
-from app.retrieve import search_chunks
-from app.roles import get_allowed_spaces
+from app.infra.embed import encode_query, is_loaded
+from app.infra.generate import generate_answer
+from app.infra.retrieve import search_chunks
 from app.schemas import SourceItem
 
 MISS_ANSWER = "知识库中没有足够依据回答这个问题。"
@@ -18,31 +17,25 @@ class AskResult:
     sources: list[SourceItem]
 
 
-def answer_question(role: str, question: str) -> AskResult:
-    """在角色允许空间内回答问题，未命中时不调用 DeepSeek。
-
-    流程：角色 → 允许空间 → 问题向量 → 隔离检索 → 命中判断。
-    未命中：返回固定拒答、hit=false、sources 为空。
-    命中：调用生成模块，并基于召回记录去重后返回最多 3 条来源。
-    """
+def answer_question(allowed_spaces: list[str], question: str) -> AskResult:
+    """在允许空间内回答问题，未命中时不调用 DeepSeek。"""
     normalized_question = question.strip()
     if not normalized_question:
         raise ValueError("问题不能为空")
     if not is_loaded():
         raise ServiceUnavailableError("向量模型未加载")
+    if not allowed_spaces:
+        return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 
-    allowed_spaces = get_allowed_spaces(role)
     query_vector = encode_query(normalized_question)
     retrieved = search_chunks(
         query_vector=query_vector,
         allowed_spaces=allowed_spaces,
         top_k=settings.retrieve_top_k,
     )
-
     if not retrieved:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 
-    # 最高相似度低于阈值时直接拒答，不调用 DeepSeek。
     top_score = max(item.score for item in retrieved)
     if top_score < settings.retrieve_min_score:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])

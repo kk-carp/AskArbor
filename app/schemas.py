@@ -1,7 +1,7 @@
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Role(str, Enum):
@@ -16,8 +16,21 @@ class SpaceId(str, Enum):
 
 
 class AskRequest(BaseModel):
-    role: Role
+    model_config = ConfigDict(extra="ignore")
+
     question: str = Field(min_length=1)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class MeResponse(BaseModel):
+    username: str
+    role: str
+    is_teaching: bool
+    allowed_spaces: list[str]
 
 
 class SourceItem(BaseModel):

@@ -29,7 +29,6 @@ def load_model() -> None:
 
 
 def is_loaded() -> bool:
-    """返回向量模型是否已就绪。"""
     return _model is not None
 
 
@@ -51,7 +50,6 @@ def _normalize_vectors(vectors: list[list[float]]) -> list[list[float]]:
 
 
 def encode_documents(texts: list[str]) -> list[list[float]]:
-    """将文档切片编码为归一化的 1024 维 dense 向量。"""
     if not texts:
         return []
 
@@ -64,14 +62,13 @@ def encode_documents(texts: list[str]) -> list[list[float]]:
             normalize_embeddings=True,
         )
     except TypeError:
-        # 兼容少量旧接口，不支持 normalize_embeddings 参数时走手动归一化。
         embeddings = model.encode(
             texts,
             batch_size=settings.embed_batch_size,
             convert_to_numpy=True,
         )
         return _normalize_vectors(embeddings.tolist())
-    except Exception as exc:  # pragma: no cover - 依赖真实模型环境
+    except Exception as exc:  # pragma: no cover
         raise ServiceUnavailableError("文档向量编码失败") from exc
 
     vectors = embeddings.tolist()
@@ -81,7 +78,6 @@ def encode_documents(texts: list[str]) -> list[list[float]]:
 
 
 def encode_query(question: str) -> list[float]:
-    """将用户问题编码为归一化的 1024 维 dense 向量。"""
     text = question.strip()
     if not text:
         raise ValueError("问题不能为空")

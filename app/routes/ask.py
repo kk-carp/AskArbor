@@ -1,17 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.errors import ServiceUnavailableError, UpstreamServiceError
-from app.qa_service import answer_question
 from app.schemas import AskRequest, AskResponse
+from app.services.auth_service import load_auth_context
+from app.services.qa_service import answer_question
 
 router = APIRouter(tags=["ask"])
 
 
 @router.post("/ask", response_model=AskResponse)
-async def ask(payload: AskRequest) -> AskResponse:
-    """按角色允许空间回答问题；不接受 `space_ids` 参数。"""
+async def ask(payload: AskRequest, request: Request) -> AskResponse:
+    """按登录用户的空间成员关系回答问题；不接受客户端空间参数。"""
     try:
-        result = answer_question(role=payload.role.value, question=payload.question)
+        context = load_auth_context(request)
+        if context is None:
+            raise HTTPException(status_code=401, detail="未登录")
+        result = answer_question(allowed_spaces=context.allowed_spaces, question=payload.question)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ServiceUnavailableError as exc:

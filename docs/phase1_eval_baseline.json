@@ -1,0 +1,45 @@
+{
+  "mode": "oracle",
+  "case_file": "docs/samples/eval/phase1_minimal_eval_set.jsonl",
+  "sample_count": 9,
+  "metrics": {
+    "overall": {
+      "total": 9,
+      "hit_count": 6,
+      "refusal_count": 3,
+      "source_accurate_count": 9,
+      "hit_rate": 0.6666666666666666,
+      "refusal_rate": 0.3333333333333333,
+      "source_accuracy_rate": 1.0
+    },
+    "by_category": {
+      "course": {
+        "total": 3,
+        "hit_count": 3,
+        "refusal_count": 0,
+        "source_accurate_count": 3,
+        "hit_rate": 1.0,
+        "refusal_rate": 0.0,
+        "source_accuracy_rate": 1.0
+      },
+      "policy": {
+        "total": 3,
+        "hit_count": 3,
+        "refusal_count": 0,
+        "source_accurate_count": 3,
+        "hit_rate": 1.0,
+        "refusal_rate": 0.0,
+        "source_accuracy_rate": 1.0
+      },
+      "no_answer": {
+        "total": 3,
+        "hit_count": 0,
+        "refusal_count": 3,
+        "source_accurate_count": 3,
+        "hit_rate": 0.0,
+        "refusal_rate": 1.0,
+        "source_accuracy_rate": 1.0
+      }
+    }
+  }
+}

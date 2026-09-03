@@ -1,6 +1,5 @@
-from pathlib import Path
-from pathlib import PurePath
 from dataclasses import dataclass
+from pathlib import Path, PurePath
 import re
 import shutil
 from uuid import uuid4
@@ -31,11 +30,7 @@ def _get_extension(filename: str) -> str:
 
 
 def save_upload(file: UploadFile, space_id: str) -> StoredFile:
-    """校验、净化并保存上传文件到 data/uploads/{space_id}/。
-
-    会校验扩展名与大小、阻止路径穿越，并按 `{uuid}_{safe_filename}`
-    生成保存名。本函数只负责落盘，不解析文件内容。
-    """
+    """校验、净化并保存上传文件到 data/uploads/{space_id}/。"""
     if space_id not in ALLOWED_SPACES:
         raise ValueError(f"Unsupported space_id: {space_id!r}")
 
@@ -51,7 +46,6 @@ def save_upload(file: UploadFile, space_id: str) -> StoredFile:
     current_offset = raw_file.tell()
     raw_file.seek(0, 2)
     size = raw_file.tell()
-    # 回绕到文件起点，确保保存时复制完整内容。
     raw_file.seek(0)
     if size > settings.max_upload_bytes:
         raise ValueError("File exceeds max size")

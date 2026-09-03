@@ -27,5 +27,9 @@ class Settings(BaseSettings):
     chunk_size: int = 800
     chunk_overlap: int = 100
 
+    secret_key: str = "change-me-for-local-dev"
+    demo_password: str = "demo1234"
+    session_cookie_name: str = "fde_session"
+
 
 settings = Settings()

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app import retrieve
+from app.infra import retrieve
 
 
 def test_search_chunks_builds_space_filtered_sql_and_maps_result(monkeypatch) -> None:

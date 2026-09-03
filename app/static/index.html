@@ -43,11 +43,31 @@
         color: #666;
         font-size: 0.9rem;
       }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
     </style>
   </head>
   <body>
     <h1>统一知识助手</h1>
-    <p class="hint">MVP 演示页：上传文档、按身份提问、展示答案与来源。</p>
+    <p class="hint">登录后提问。可检索空间由服务端按账号成员关系计算，页面不负责权限控制。</p>
+
+    <section>
+      <h2>登录</h2>
+      <p id="currentUser" class="hint">正在检查登录状态...</p>
+      <label for="username">用户名</label>
+      <input id="username" type="text" autocomplete="username" />
+      <label for="password">密码</label>
+      <input id="password" type="password" autocomplete="current-password" />
+      <p class="row">
+        <button id="loginBtn" type="button">登录</button>
+        <button id="logoutBtn" type="button">退出</button>
+      </p>
+      <p id="authStatus" class="hint"></p>
+    </section>
 
     <section>
       <h2>上传文档</h2>
@@ -64,33 +84,40 @@
 
     <section>
       <h2>提问</h2>
-      <label for="role">模拟身份</label>
-      <select id="role">
-        <option value="student">student</option>
-        <option value="employee">employee</option>
-        <option value="teaching">teaching</option>
-      </select>
       <label for="question">问题</label>
-      <textarea id="question" placeholder="输入问题"></textarea>
+      <textarea id="question" placeholder="登录后再输入问题"></textarea>
       <p><button id="askBtn" type="button">提问</button></p>
       <h3>答案</h3>
-      <p id="answer">请先上传文档并提问。</p>
+      <p id="answer">请先登录并提问。</p>
       <h3>来源</h3>
       <ul id="sources"></ul>
       <p id="askStatus" class="hint"></p>
     </section>
     <script>
+      const usernameInput = document.getElementById("username");
+      const passwordInput = document.getElementById("password");
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const authStatus = document.getElementById("authStatus");
+      const currentUserEl = document.getElementById("currentUser");
+
       const spaceSelect = document.getElementById("space");
       const fileInput = document.getElementById("file");
       const uploadBtn = document.getElementById("uploadBtn");
       const uploadStatus = document.getElementById("uploadStatus");
 
-      const roleSelect = document.getElementById("role");
       const questionInput = document.getElementById("question");
       const askBtn = document.getElementById("askBtn");
       const askStatus = document.getElementById("askStatus");
       const answerEl = document.getElementById("answer");
       const sourcesEl = document.getElementById("sources");
+
+      let currentUser = null;
+
+      function setAuthStatus(text, isError = false) {
+        authStatus.textContent = text;
+        authStatus.style.color = isError ? "#b00020" : "#666";
+      }
 
       function setUploadStatus(text, isError = false) {
         uploadStatus.textContent = text;
@@ -101,6 +128,97 @@
         askStatus.textContent = text;
         askStatus.style.color = isError ? "#b00020" : "#666";
       }
+
+      function renderCurrentUser() {
+        if (!currentUser) {
+          currentUserEl.textContent = "未登录。演示账号：student_demo / employee_demo / teaching_demo。";
+          return;
+        }
+        const spaces = (currentUser.allowed_spaces || []).join(", ") || "无";
+        const teaching = currentUser.is_teaching ? "，教学岗" : "";
+        currentUserEl.textContent = `当前用户：${currentUser.username}（${currentUser.role}${teaching}），可检索空间：${spaces}`;
+      }
+
+      async function refreshMe() {
+        try {
+          const response = await fetch("/me", { credentials: "same-origin" });
+          if (response.status === 401) {
+            currentUser = null;
+            renderCurrentUser();
+            return;
+          }
+          const data = await response.json();
+          if (!response.ok) {
+            currentUser = null;
+            renderCurrentUser();
+            setAuthStatus(`读取登录状态失败：${data.detail || "未知错误"}`, true);
+            return;
+          }
+          currentUser = data;
+          renderCurrentUser();
+        } catch (_error) {
+          currentUser = null;
+          renderCurrentUser();
+          setAuthStatus("读取登录状态失败：网络异常。", true);
+        }
+      }
+
+      loginBtn.addEventListener("click", async () => {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+          setAuthStatus("请输入用户名和密码。", true);
+          return;
+        }
+        loginBtn.disabled = true;
+        setAuthStatus("登录中...");
+        try {
+          const response = await fetch("/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            currentUser = null;
+            renderCurrentUser();
+            setAuthStatus(`登录失败：${data.detail || "未知错误"}`, true);
+            return;
+          }
+          currentUser = data;
+          passwordInput.value = "";
+          renderCurrentUser();
+          setAuthStatus("登录成功。");
+        } catch (_error) {
+          setAuthStatus("登录失败：网络异常。", true);
+        } finally {
+          loginBtn.disabled = false;
+        }
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+        logoutBtn.disabled = true;
+        setAuthStatus("退出中...");
+        try {
+          const response = await fetch("/logout", {
+            method: "POST",
+            credentials: "same-origin",
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            setAuthStatus(`退出失败：${data.detail || "未知错误"}`, true);
+            return;
+          }
+          currentUser = null;
+          renderCurrentUser();
+          setAuthStatus("已退出。");
+        } catch (_error) {
+          setAuthStatus("退出失败：网络异常。", true);
+        } finally {
+          logoutBtn.disabled = false;
+        }
+      });
 
       uploadBtn.addEventListener("click", async () => {
         const file = fileInput.files?.[0];
@@ -118,6 +236,7 @@
         try {
           const response = await fetch("/documents", {
             method: "POST",
+            credentials: "same-origin",
             body: formData,
           });
           const data = await response.json();
@@ -136,6 +255,10 @@
       });
 
       askBtn.addEventListener("click", async () => {
+        if (!currentUser) {
+          setAskStatus("请先登录后再提问。", true);
+          return;
+        }
         const question = questionInput.value.trim();
         if (!question) {
           setAskStatus("请输入问题。", true);
@@ -150,13 +273,18 @@
         try {
           const response = await fetch("/ask", {
             method: "POST",
+            credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              role: roleSelect.value,
-              question: question,
-            }),
+            body: JSON.stringify({ question }),
           });
           const data = await response.json();
+          if (response.status === 401) {
+            currentUser = null;
+            renderCurrentUser();
+            setAskStatus("未登录，请先登录。", true);
+            answerEl.textContent = "请求失败";
+            return;
+          }
           if (!response.ok) {
             setAskStatus(`提问失败：${data.detail || "未知错误"}`, true);
             answerEl.textContent = "请求失败";
@@ -181,6 +309,8 @@
           askBtn.disabled = false;
         }
       });
+
+      refreshMe();
     </script>
   </body>
 </html>

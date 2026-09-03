@@ -1,8 +1,8 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.errors import ServiceUnavailableError
-from app.ingest_service import ingest_document
 from app.schemas import DocumentResponse
+from app.services.ingest_service import ingest_document
 
 router = APIRouter(tags=["documents"])
 
