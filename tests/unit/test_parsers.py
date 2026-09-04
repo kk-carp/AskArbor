@@ -4,7 +4,7 @@ import pytest
 from docx import Document as DocxDocument
 from pypdf import PdfWriter
 
-from app.infra import parsers
+from backend.infra import parsers
 
 
 def test_parse_document_reads_markdown_utf8(tmp_path: Path) -> None:

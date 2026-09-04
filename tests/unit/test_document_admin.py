@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.models import DocumentStatus
-from app.services import document_admin_service
+from backend.models import DocumentStatus
+from backend.services import document_admin_service
 
 
 def test_set_document_offline_updates_status(monkeypatch) -> None:

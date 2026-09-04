@@ -1,5 +1,5 @@
-from app.infra import generate
-from app.infra.retrieve import RetrievedChunk
+from backend.infra import generate
+from backend.infra.retrieve import RetrievedChunk
 from uuid import uuid4
 
 

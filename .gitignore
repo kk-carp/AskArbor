@@ -20,3 +20,7 @@ data/uploads/*
 .idea/
 .vscode/
 *.swp
+
+frontend/node_modules/
+frontend/dist/
+web/

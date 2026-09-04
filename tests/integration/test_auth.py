@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.services.auth_service import AuthContext, AuthUser, hash_password, verify_password
-from app.services.qa_service import AskResult
+from backend.main import app
+from backend.services.auth_service import AuthContext, AuthUser, hash_password, verify_password
+from backend.services.qa_service import AskResult
 
 
 def test_hash_password_is_not_plaintext_and_verifies() -> None:
@@ -16,8 +16,8 @@ def test_hash_password_is_not_plaintext_and_verifies() -> None:
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr("app.main.load_model", lambda: None)
-    monkeypatch.setattr("app.main.init_db", lambda: None)
+    monkeypatch.setattr("backend.main.load_model", lambda: None)
+    monkeypatch.setattr("backend.main.init_db", lambda: None)
     return TestClient(app)
 
 
@@ -28,7 +28,7 @@ def test_ask_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
         called["value"] = True
         return AskResult(answer="no", hit=False, sources=[])
 
-    monkeypatch.setattr("app.routes.ask.answer_question", _fake_answer)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _fake_answer)
     with _client(monkeypatch) as client:
         response = client.post("/ask", json={"question": "课程作业怎么交"})
 
@@ -38,7 +38,7 @@ def test_ask_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_login_rejects_bad_password_and_omits_hash(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.routes.auth.authenticate", lambda _u, _p: None)
+    monkeypatch.setattr("backend.routes.auth.authenticate", lambda _u, _p: None)
     with _client(monkeypatch) as client:
         response = client.post(
             "/login",
@@ -58,8 +58,8 @@ def test_login_me_and_logout_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
         role="student",
         is_teaching=False,
     )
-    monkeypatch.setattr("app.routes.auth.authenticate", lambda username, password: user)
-    monkeypatch.setattr("app.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["student"])
+    monkeypatch.setattr("backend.routes.auth.authenticate", lambda username, password: user)
+    monkeypatch.setattr("backend.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["student"])
 
     def _fake_load_auth_context(request):
         if request.session.get("user_id") == user.id:
@@ -67,7 +67,7 @@ def test_login_me_and_logout_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
         return None
 
     monkeypatch.setattr(
-        "app.routes.auth.load_auth_context",
+        "backend.routes.auth.load_auth_context",
         _fake_load_auth_context,
     )
 
@@ -107,10 +107,10 @@ def test_ask_ignores_forged_role_and_space_ids(monkeypatch: pytest.MonkeyPatch) 
         return AskResult(answer="知识库中没有足够依据回答这个问题。", hit=False, sources=[])
 
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
-    monkeypatch.setattr("app.routes.ask.answer_question", _fake_answer)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _fake_answer)
 
     with _client(monkeypatch) as client:
         response = client.post(
@@ -141,10 +141,10 @@ def test_ask_uses_teaching_membership_spaces(monkeypatch: pytest.MonkeyPatch) ->
         return AskResult(answer="答案", hit=True, sources=[])
 
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
     )
-    monkeypatch.setattr("app.routes.ask.answer_question", _fake_answer)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _fake_answer)
 
     with _client(monkeypatch) as client:
         response = client.post("/ask", json={"question": "课程作业怎么交"})
@@ -162,10 +162,10 @@ def test_me_exposes_advisor_and_manage_flag(monkeypatch: pytest.MonkeyPatch) -> 
         advisor_id="advisor-1",
     )
     monkeypatch.setattr(
-        "app.routes.auth.load_auth_context",
+        "backend.routes.auth.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
-    monkeypatch.setattr("app.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["student"])
+    monkeypatch.setattr("backend.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["student"])
 
     with _client(monkeypatch) as client:
         # 先写入 session，使 load_auth_context 被调用前有登录态不是必须（已 mock）

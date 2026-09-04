@@ -2,11 +2,11 @@ from uuid import uuid4
 
 import pytest
 
-from app.errors import UpstreamServiceError
-from app.infra.retrieve import RetrievedChunk
-from app.services import qa_service
-from app.services.qa_service import MISS_ANSWER
-from app.services.ticket_service import TicketError
+from backend.errors import UpstreamServiceError
+from backend.infra.retrieve import RetrievedChunk
+from backend.services import qa_service
+from backend.services.qa_service import MISS_ANSWER
+from backend.services.ticket_service import TicketError
 
 
 def test_student_miss_creates_ticket(monkeypatch: pytest.MonkeyPatch) -> None:

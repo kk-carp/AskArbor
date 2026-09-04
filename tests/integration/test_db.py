@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import db
+from backend import db
 
 
 def test_init_engine_creates_engine_and_session_factory(
@@ -105,8 +105,8 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
 
     monkeypatch.setattr(db, "init_engine", lambda: fake_engine)
     monkeypatch.setattr(db.Base.metadata, "create_all", lambda *, bind: metadata_calls.append(bind))
-    monkeypatch.setattr("app.seed.demo_users.seed_demo_users", lambda _session: None)
-    monkeypatch.setattr("app.seed.topic_owners.seed_topic_owners", lambda _session: None)
+    monkeypatch.setattr("backend.seed.demo_users.seed_demo_users", lambda _session: None)
+    monkeypatch.setattr("backend.seed.topic_owners.seed_topic_owners", lambda _session: None)
     db.SessionLocal = lambda: _FakeSessionContext()
 
     db.init_db()

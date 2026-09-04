@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile
 
-from app.infra import storage
+from backend.infra import storage
 
 
 def _upload_file(filename: str, content: bytes) -> UploadFile:

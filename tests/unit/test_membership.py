@@ -1,4 +1,4 @@
-from app.domain.membership import expected_spaces, get_allowed_spaces_for_user
+from backend.domain.membership import expected_spaces, get_allowed_spaces_for_user
 
 
 def test_expected_spaces_for_student() -> None:
@@ -33,8 +33,8 @@ def test_get_allowed_spaces_for_user_reads_memberships(monkeypatch) -> None:
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("app.domain.membership.db.init_engine", lambda: None)
-    monkeypatch.setattr("app.domain.membership.db.SessionLocal", lambda: _Session())
+    monkeypatch.setattr("backend.domain.membership.db.init_engine", lambda: None)
+    monkeypatch.setattr("backend.domain.membership.db.SessionLocal", lambda: _Session())
 
     assert get_allowed_spaces_for_user("user-1") == ["student", "company"]
 
@@ -55,7 +55,7 @@ def test_get_allowed_spaces_for_user_returns_empty_without_membership(monkeypatc
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("app.domain.membership.db.init_engine", lambda: None)
-    monkeypatch.setattr("app.domain.membership.db.SessionLocal", lambda: _Session())
+    monkeypatch.setattr("backend.domain.membership.db.init_engine", lambda: None)
+    monkeypatch.setattr("backend.domain.membership.db.SessionLocal", lambda: _Session())
 
     assert get_allowed_spaces_for_user("user-1") == []

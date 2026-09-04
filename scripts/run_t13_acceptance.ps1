@@ -75,7 +75,7 @@ try {
     if (-not $SkipStartApi.IsPresent) {
         $apiProcess = Start-Process `
             -FilePath "python" `
-            -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000") `
+            -ArgumentList @("-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000") `
             -PassThru
     }
 

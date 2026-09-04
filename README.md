@@ -7,13 +7,13 @@ FDE 课程实践：文档入库、按空间隔离检索、DeepSeek 作答、真�
 ## 结构
 
 ```text
-app/
+backend/
   routes/            HTTP 路由层
   services/          业务编排层
   domain/            领域规则（空间授权等）
   infra/             基础能力（解析/切片/检索/生成）
   seed/              演示账号种子
-frontend/            Streamlit 前端（登录 / 文档管理 / 问答 / 工单 / 主题负责人）
+frontend/            Vue 3 产品入口（Vite + Element Plus）
 tests/
   unit/              单模块测试
   integration/       跨模块集成测试
@@ -31,44 +31,77 @@ requirements.txt
 ## 运行环境
 
 - Python 3.11+
+- Node.js 18+（Vue 前端 `npm run dev` / `npm run build`）
 - Docker Desktop（用于 PostgreSQL + pgvector）
 - 可用的 DeepSeek API Key（命中问答时必需）
 
 ## 本地启动
 
-本机 venv 跑 API 时，Compose **只起数据库**，避免与本机 `uvicorn` 抢 8000 端口：
+本机用 venv 跑 API 时，Compose **只起数据库**，避免与本机 `uvicorn` 抢 8000 端口。首次需要 Node.js（前端）和 Docker Desktop（Postgres）。
+
+### 1. 准备 Python 环境并启动 API
+
+在仓库根目录执行：
 
 ```powershell
+# 创建本机 Python 虚拟环境，隔离项目依赖
 python -m venv .venv
+
+# 激活虚拟环境（之后 pip / python / uvicorn 都走 .venv）
 .venv\Scripts\activate
+
+# 安装后端依赖（FastAPI、pgvector 客户端、BGE-M3、测试工具等）
 pip install -r requirements.txt
+
+# 复制环境变量模板为本地 .env（不要提交真实密钥）
 copy .env.example .env
-docker compose up -d postgres
-uvicorn app.main:app --reload
 ```
 
-启动后访问：
-
-- 演示页面（FastAPI 内置）：[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-- 健康检查：[http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-
-### Streamlit 前端
-
-另开终端，在 API 已启动的前提下执行：
+用编辑器打开 `.env`，填入 `CHAT_API_KEY`，并修改 `SECRET_KEY`（见下方「配置说明」）。
 
 ```powershell
-streamlit run frontend/app.py
+# 仅启动 PostgreSQL + pgvector 容器，映射本机 5432，不启动 API 容器
+docker compose up -d postgres
+
+# 启动 FastAPI：建表、加载 BGE-M3、提供登录/入库/问答接口；--reload 表示改代码后自动重启
+uvicorn backend.main:app --reload
 ```
 
-页面：
+API 默认监听 [http://127.0.0.1:8000](http://127.0.0.1:8000)。可用下面命令确认数据库与向量模型已就绪：
 
-1. **登录** — 账号登录 / 退出  
-2. **上传与文档管理** — 教学岗上传、列表、下线  
-3. **问答** — 登录态提问（空间由服务端成员关系决定）；员工未命中展示负责人  
-4. **工单** — 学员未命中自动建单；班主任回复  
-5. **主题负责人** — 教学岗配置内部主题联系方式
+```powershell
+# 调用健康检查：应看到 api、database、embedding_loaded 均为 true
+Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:8000/health"
+```
 
-侧边栏可修改 API 地址（默认 `http://127.0.0.1:8000`）。Streamlit 通过服务端 `httpx` 携带 Session Cookie 调后端，不依赖浏览器跨域。
+### 2. 启动 Vue 前端（开发）
+
+另开一个终端（API 保持运行）：
+
+```powershell
+# 进入 Vue 工程目录
+cd frontend
+
+# 安装前端依赖（Vue、Element Plus、Vite 等）；只需在首次或 package.json 变更后执行
+npm install
+
+# 启动 Vite 开发服务器（默认 http://127.0.0.1:5173），并把 /login /ask 等 API 代理到 :8000，以便 Session Cookie 同源
+npm run dev
+```
+
+浏览器打开 [http://127.0.0.1:5173/](http://127.0.0.1:5173/) 即为产品入口。
+
+### 3. 可选：把前端构建进 API 同源托管
+
+不跑 Vite、只开 `:8000` 时：
+
+```powershell
+# 在 frontend/ 下把 Vue 编译到 frontend/dist
+cd frontend
+npm run build
+```
+
+然后刷新 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)，由 FastAPI 托管构建产物。未执行 `npm run build` 时访问 `/` 会返回 503。
 
 ## 配置说明
 
@@ -123,9 +156,7 @@ HF_ENDPOINT: https://hf-mirror.com
 Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:8000/health"
 ```
 
-期望 `api`、`database`、`embedding_loaded` 均为 `true`。仍为单体 FastAPI 进程，没有第二套检索服务。
-
-Streamlit 前端仍在本机另开终端：`streamlit run frontend/app.py`。
+期望 `api`、`database`、`embedding_loaded` 均为 `true`。仍为单体 FastAPI 进程，没有第二套检索服务。浏览器打开 [http://127.0.0.1:8000/](http://127.0.0.1:8000/) 即为 Vue 产品入口。
 
 ## 运行验证
 
@@ -213,5 +244,5 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 文档上传/下线仅教学岗（或管理员）；`failed`/`offline` 文档不可检索。
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
-- 问答审计日志（`app.audit`）：用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。
+- 问答审计日志（`backend.audit`）：用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。

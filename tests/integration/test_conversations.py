@@ -4,20 +4,20 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.schemas import SourceItem
-from app.services.auth_service import AuthContext, AuthUser
-from app.services.conversation_service import (
+from backend.main import app
+from backend.schemas import SourceItem
+from backend.services.auth_service import AuthContext, AuthUser
+from backend.services.conversation_service import (
     ConversationNotFoundError,
     ConversationSummary,
     MessageView,
 )
-from app.services.qa_service import AskResult, MISS_ANSWER
+from backend.services.qa_service import AskResult, MISS_ANSWER
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr("app.main.load_model", lambda: None)
-    monkeypatch.setattr("app.main.init_db", lambda: None)
+    monkeypatch.setattr("backend.main.load_model", lambda: None)
+    monkeypatch.setattr("backend.main.init_db", lambda: None)
     return TestClient(app)
 
 
@@ -53,10 +53,10 @@ def test_ask_returns_conversation_id_and_accepts_followup(
         )
 
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
-    monkeypatch.setattr("app.routes.ask.answer_question", _fake_answer)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _fake_answer)
 
     with _client(monkeypatch) as client:
         first = client.post("/ask", json={"question": "作业怎么交"})
@@ -81,14 +81,14 @@ def test_ask_returns_404_when_conversation_missing(
 ) -> None:
     user = _auth_user()
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
 
     def _fake_answer(**_kwargs):
         raise ConversationNotFoundError("会话不存在")
 
-    monkeypatch.setattr("app.routes.ask.answer_question", _fake_answer)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _fake_answer)
 
     with _client(monkeypatch) as client:
         response = client.post(
@@ -104,11 +104,11 @@ def test_list_conversations_and_messages(monkeypatch: pytest.MonkeyPatch) -> Non
     now = datetime.now(timezone.utc)
 
     monkeypatch.setattr(
-        "app.routes.conversations.load_auth_context",
+        "backend.routes.conversations.load_auth_context",
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
     monkeypatch.setattr(
-        "app.routes.conversations.list_conversations_for_user",
+        "backend.routes.conversations.list_conversations_for_user",
         lambda user_id: [
             ConversationSummary(
                 id=conversation_id,
@@ -119,7 +119,7 @@ def test_list_conversations_and_messages(monkeypatch: pytest.MonkeyPatch) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.routes.conversations.list_messages_for_user",
+        "backend.routes.conversations.list_messages_for_user",
         lambda user_id, cid: [
             MessageView(
                 id=uuid4(),
@@ -149,7 +149,7 @@ def test_list_conversations_and_messages(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_conversations_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.routes.conversations.load_auth_context", lambda _request: None)
+    monkeypatch.setattr("backend.routes.conversations.load_auth_context", lambda _request: None)
     with _client(monkeypatch) as client:
         assert client.get("/conversations").status_code == 401
         assert client.get(f"/conversations/{uuid4()}/messages").status_code == 401

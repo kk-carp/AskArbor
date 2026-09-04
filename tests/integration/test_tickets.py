@@ -4,15 +4,15 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.services.auth_service import AuthContext, AuthUser
-from app.services.qa_service import AskResult, MISS_ANSWER
-from app.services.ticket_service import TicketError, TicketView
+from backend.main import app
+from backend.services.auth_service import AuthContext, AuthUser
+from backend.services.qa_service import AskResult, MISS_ANSWER
+from backend.services.ticket_service import TicketError, TicketView
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr("app.main.load_model", lambda: None)
-    monkeypatch.setattr("app.main.init_db", lambda: None)
+    monkeypatch.setattr("backend.main.load_model", lambda: None)
+    monkeypatch.setattr("backend.main.init_db", lambda: None)
     return TestClient(app)
 
 
@@ -22,11 +22,11 @@ def test_ask_student_miss_returns_ticket_id(monkeypatch: pytest.MonkeyPatch) -> 
     conversation_id = uuid4()
 
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _r: AuthContext(user=user, allowed_spaces=["student"]),
     )
     monkeypatch.setattr(
-        "app.routes.ask.answer_question",
+        "backend.routes.ask.answer_question",
         lambda **_k: AskResult(
             answer=MISS_ANSWER,
             hit=False,
@@ -48,14 +48,14 @@ def test_ask_student_miss_returns_ticket_id(monkeypatch: pytest.MonkeyPatch) -> 
 def test_ask_maps_missing_advisor_to_400(monkeypatch: pytest.MonkeyPatch) -> None:
     user = AuthUser("stu-1", "student_demo", "student", False, advisor_id=None)
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _r: AuthContext(user=user, allowed_spaces=["student"]),
     )
 
     def _boom(**_k):
         raise TicketError("学员未绑定班主任，无法建工单")
 
-    monkeypatch.setattr("app.routes.ask.answer_question", _boom)
+    monkeypatch.setattr("backend.routes.ask.answer_question", _boom)
 
     with _client(monkeypatch) as client:
         response = client.post("/ask", json={"question": "问题"})
@@ -91,11 +91,11 @@ def test_tickets_crud_flow(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     monkeypatch.setattr(
-        "app.routes.tickets.load_auth_context",
+        "backend.routes.tickets.load_auth_context",
         lambda _r: AuthContext(user=student, allowed_spaces=["student"]),
     )
-    monkeypatch.setattr("app.routes.tickets.create_ticket", lambda **_k: view)
-    monkeypatch.setattr("app.routes.tickets.list_tickets_for_user", lambda _u: [view])
+    monkeypatch.setattr("backend.routes.tickets.create_ticket", lambda **_k: view)
+    monkeypatch.setattr("backend.routes.tickets.list_tickets_for_user", lambda _u: [view])
 
     with _client(monkeypatch) as client:
         created = client.post("/tickets", json={"question": "作业截止？"})
@@ -107,10 +107,10 @@ def test_tickets_crud_flow(monkeypatch: pytest.MonkeyPatch) -> None:
         assert listed.json()[0]["id"] == str(ticket_id)
 
     monkeypatch.setattr(
-        "app.routes.tickets.load_auth_context",
+        "backend.routes.tickets.load_auth_context",
         lambda _r: AuthContext(user=advisor, allowed_spaces=["student", "company"]),
     )
-    monkeypatch.setattr("app.routes.tickets.reply_ticket", lambda **_k: replied)
+    monkeypatch.setattr("backend.routes.tickets.reply_ticket", lambda **_k: replied)
 
     with _client(monkeypatch) as client:
         response = client.post(
@@ -125,14 +125,14 @@ def test_tickets_crud_flow(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_employee_explicit_ticket_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     employee = AuthUser("emp-1", "employee_demo", "employee", False)
     monkeypatch.setattr(
-        "app.routes.tickets.load_auth_context",
+        "backend.routes.tickets.load_auth_context",
         lambda _r: AuthContext(user=employee, allowed_spaces=["company"]),
     )
 
     def _boom(**_k):
         raise TicketError("仅学员可创建工单")
 
-    monkeypatch.setattr("app.routes.tickets.create_ticket", _boom)
+    monkeypatch.setattr("backend.routes.tickets.create_ticket", _boom)
 
     with _client(monkeypatch) as client:
         response = client.post("/tickets", json={"question": "制度？"})
@@ -140,7 +140,7 @@ def test_employee_explicit_ticket_rejected(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_tickets_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.routes.tickets.load_auth_context", lambda _r: None)
+    monkeypatch.setattr("backend.routes.tickets.load_auth_context", lambda _r: None)
     with _client(monkeypatch) as client:
         assert client.get("/tickets").status_code == 401
         assert client.post("/tickets", json={"question": "q"}).status_code == 401

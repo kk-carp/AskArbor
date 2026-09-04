@@ -1,6 +1,6 @@
 ---
 description: FastAPI 与 Python 模块的代码风格和边界
-globs: app/**/*.py
+globs: backend/**/*.py
 alwaysApply: false
 ---
 

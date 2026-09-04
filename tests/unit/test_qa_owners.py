@@ -1,8 +1,8 @@
 from uuid import uuid4
 
-from app.schemas import OwnerInfo
-from app.services import qa_service
-from app.services.qa_service import MISS_ANSWER
+from backend.schemas import OwnerInfo
+from backend.services import qa_service
+from backend.services.qa_service import MISS_ANSWER
 
 
 def _conversation_session():

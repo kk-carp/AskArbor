@@ -3,9 +3,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Ticket, TicketStatus
-from app.services.auth_service import AuthUser
-from app.services.ticket_service import (
+from backend.models import Ticket, TicketStatus
+from backend.services.auth_service import AuthUser
+from backend.services.ticket_service import (
     TicketError,
     TicketNotFoundError,
     create_ticket_for_student,
@@ -31,7 +31,7 @@ class _FakeSession:
 
 
 def test_create_ticket_for_student_uses_advisor() -> None:
-    from app.models import User
+    from backend.models import User
 
     advisor = User(
         id="adv-1",
@@ -107,7 +107,7 @@ def test_list_tickets_student_only_own(monkeypatch: pytest.MonkeyPatch) -> None:
             return _R()
 
     monkeypatch.setattr(
-        "app.services.ticket_service._ensure_session_factory",
+        "backend.services.ticket_service._ensure_session_factory",
         lambda: (lambda: _Session()),
     )
     viewer = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
@@ -143,7 +143,7 @@ def test_reply_ticket_by_assignee(monkeypatch: pytest.MonkeyPatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "app.services.ticket_service._ensure_session_factory",
+        "backend.services.ticket_service._ensure_session_factory",
         lambda: (lambda: _Session()),
     )
     actor = AuthUser("adv-1", "teaching_demo", "employee", True)
@@ -173,7 +173,7 @@ def test_reply_ticket_forbidden_for_other_user(monkeypatch: pytest.MonkeyPatch) 
             return ticket if key == ticket_id else None
 
     monkeypatch.setattr(
-        "app.services.ticket_service._ensure_session_factory",
+        "backend.services.ticket_service._ensure_session_factory",
         lambda: (lambda: _Session()),
     )
     actor = AuthUser("other", "employee_demo", "employee", False)

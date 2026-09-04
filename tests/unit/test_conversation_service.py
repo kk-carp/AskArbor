@@ -3,9 +3,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Conversation, Message
-from app.services import conversation_service
-from app.services.conversation_service import (
+from backend.models import Conversation, Message
+from backend.services import conversation_service
+from backend.services.conversation_service import (
     ConversationNotFoundError,
     HistoryMessage,
     append_turn,

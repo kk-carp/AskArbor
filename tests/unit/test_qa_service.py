@@ -2,9 +2,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.infra.retrieve import RetrievedChunk
-from app.services import qa_service
-from app.services.qa_service import MISS_ANSWER
+from backend.infra.retrieve import RetrievedChunk
+from backend.services import qa_service
+from backend.services.qa_service import MISS_ANSWER
 
 
 def test_answer_question_returns_miss_without_calling_generate(

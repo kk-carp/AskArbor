@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from app.seed.demo_users import bind_demo_student_advisor
+from backend.seed.demo_users import bind_demo_student_advisor
 
 
 def test_bind_demo_student_advisor_sets_advisor_id() -> None:

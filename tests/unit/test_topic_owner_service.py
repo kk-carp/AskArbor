@@ -1,8 +1,8 @@
 import pytest
 
-from app.models import TopicOwner
-from app.seed.topic_owners import DEMO_TOPIC_OWNERS, seed_topic_owners
-from app.services.topic_owner_service import (
+from backend.models import TopicOwner
+from backend.seed.topic_owners import DEMO_TOPIC_OWNERS, seed_topic_owners
+from backend.services.topic_owner_service import (
     TopicOwnerError,
     UNCONFIGURED_OWNER,
     lookup_owner_for_employee,
@@ -162,7 +162,7 @@ def test_upsert_creates_and_updates(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "app.services.topic_owner_service._ensure_session_factory",
+        "backend.services.topic_owner_service._ensure_session_factory",
         lambda: (lambda: _Session()),
     )
 
@@ -189,7 +189,7 @@ def test_upsert_creates_and_updates(monkeypatch) -> None:
 
 def test_upsert_rejects_blank_name(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.services.topic_owner_service._ensure_session_factory",
+        "backend.services.topic_owner_service._ensure_session_factory",
         lambda: (lambda: _FakeSession()),
     )
     with pytest.raises(TopicOwnerError, match="不能为空"):

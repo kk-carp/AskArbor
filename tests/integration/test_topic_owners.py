@@ -3,16 +3,16 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.schemas import OwnerInfo, TopicOwnerResponse
-from app.services.auth_service import AuthContext, AuthUser
-from app.services.qa_service import AskResult, MISS_ANSWER
-from app.services.topic_owner_service import TopicOwnerError
+from backend.main import app
+from backend.schemas import OwnerInfo, TopicOwnerResponse
+from backend.services.auth_service import AuthContext, AuthUser
+from backend.services.qa_service import AskResult, MISS_ANSWER
+from backend.services.topic_owner_service import TopicOwnerError
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr("app.main.load_model", lambda: None)
-    monkeypatch.setattr("app.main.init_db", lambda: None)
+    monkeypatch.setattr("backend.main.load_model", lambda: None)
+    monkeypatch.setattr("backend.main.init_db", lambda: None)
     return TestClient(app)
 
 
@@ -26,11 +26,11 @@ def test_ask_employee_miss_returns_owner(monkeypatch: pytest.MonkeyPatch) -> Non
         contact="hr-demo@example.local",
     )
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _r: AuthContext(user=user, allowed_spaces=["company"]),
     )
     monkeypatch.setattr(
-        "app.routes.ask.answer_question",
+        "backend.routes.ask.answer_question",
         lambda **_k: AskResult(
             answer=MISS_ANSWER,
             hit=False,
@@ -55,11 +55,11 @@ def test_ask_employee_miss_returns_owner(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_ask_student_miss_omits_owner(monkeypatch: pytest.MonkeyPatch) -> None:
     user = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
     monkeypatch.setattr(
-        "app.routes.ask.load_auth_context",
+        "backend.routes.ask.load_auth_context",
         lambda _r: AuthContext(user=user, allowed_spaces=["student"]),
     )
     monkeypatch.setattr(
-        "app.routes.ask.answer_question",
+        "backend.routes.ask.answer_question",
         lambda **_k: AskResult(
             answer=MISS_ANSWER,
             hit=False,
@@ -78,7 +78,7 @@ def test_ask_student_miss_omits_owner(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_topic_owners_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.routes.topic_owners.load_auth_context", lambda _r: None)
+    monkeypatch.setattr("backend.routes.topic_owners.load_auth_context", lambda _r: None)
     with _client(monkeypatch) as client:
         assert client.get("/topic_owners").status_code == 401
         assert client.put(
@@ -96,7 +96,7 @@ def test_topic_owners_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_topic_owners_forbidden_for_employee(monkeypatch: pytest.MonkeyPatch) -> None:
     employee = AuthUser("emp-1", "employee_demo", "employee", False)
     monkeypatch.setattr(
-        "app.routes.topic_owners.load_auth_context",
+        "backend.routes.topic_owners.load_auth_context",
         lambda _r: AuthContext(user=employee, allowed_spaces=["company"]),
     )
     with _client(monkeypatch) as client:
@@ -113,11 +113,11 @@ def test_topic_owners_list_and_upsert(monkeypatch: pytest.MonkeyPatch) -> None:
         contact="hr-demo@example.local",
     )
     monkeypatch.setattr(
-        "app.routes.topic_owners.load_auth_context",
+        "backend.routes.topic_owners.load_auth_context",
         lambda _r: AuthContext(user=teaching, allowed_spaces=["student", "company"]),
     )
-    monkeypatch.setattr("app.routes.topic_owners.list_topic_owners", lambda: [item])
-    monkeypatch.setattr("app.routes.topic_owners.upsert_topic_owner", lambda **_k: item)
+    monkeypatch.setattr("backend.routes.topic_owners.list_topic_owners", lambda: [item])
+    monkeypatch.setattr("backend.routes.topic_owners.upsert_topic_owner", lambda **_k: item)
 
     with _client(monkeypatch) as client:
         listed = client.get("/topic_owners")
@@ -141,14 +141,14 @@ def test_topic_owners_list_and_upsert(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_topic_owners_upsert_maps_error(monkeypatch: pytest.MonkeyPatch) -> None:
     teaching = AuthUser("adv-1", "teaching_demo", "employee", True)
     monkeypatch.setattr(
-        "app.routes.topic_owners.load_auth_context",
+        "backend.routes.topic_owners.load_auth_context",
         lambda _r: AuthContext(user=teaching, allowed_spaces=["student", "company"]),
     )
 
     def _boom(**_k):
         raise TopicOwnerError("主题名称、负责人姓名和联系方式不能为空")
 
-    monkeypatch.setattr("app.routes.topic_owners.upsert_topic_owner", _boom)
+    monkeypatch.setattr("backend.routes.topic_owners.upsert_topic_owner", _boom)
 
     with _client(monkeypatch) as client:
         response = client.put(
