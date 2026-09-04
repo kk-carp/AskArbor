@@ -110,8 +110,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <p class="caption">仅教学岗可上传与下线。列表状态来自服务端，失败原因原样展示。</p>
+  <div class="page-panel">
+    <p class="page-caption">仅教学岗可上传与下线。列表状态来自服务端，失败原因原样展示。</p>
     <DocumentSearchForm
       :model="query"
       @search="handleSearch"
@@ -133,13 +133,5 @@ onMounted(() => {
       :submitting="uploading"
       @submit="handleUpload"
     />
-  </el-card>
+  </div>
 </template>
-
-<style scoped>
-.caption {
-  margin: 0 0 12px;
-  color: #909399;
-  font-size: 13px;
-}
-</style>

@@ -15,6 +15,7 @@ const currentConversationId = ref<string | null>(null);
 const listLoading = ref(false);
 const messageLoading = ref(false);
 const asking = ref(false);
+const pendingQuestion = ref("");
 const requestError = ref<{ title: string; detail: string } | null>(null);
 const composerRef = ref<{ resetQuestion: () => void } | null>(null);
 const messageWrap = ref<HTMLElement | null>(null);
@@ -37,8 +38,10 @@ async function refreshConversations(): Promise<void> {
   }
 }
 
-async function loadMessages(conversationId: string): Promise<void> {
-  messageLoading.value = true;
+async function loadMessages(conversationId: string, silent = false): Promise<void> {
+  if (!silent) {
+    messageLoading.value = true;
+  }
   try {
     messages.value = await listMessages(conversationId);
     await scrollToBottom();
@@ -69,6 +72,8 @@ function startNewConversation(): void {
 async function handleAsk(question: string): Promise<void> {
   asking.value = true;
   requestError.value = null;
+  pendingQuestion.value = question;
+  await scrollToBottom();
   try {
     const result = await askQuestion(question, currentConversationId.value);
     const conversationId = result.conversation_id;
@@ -78,7 +83,7 @@ async function handleAsk(question: string): Promise<void> {
     }
     currentConversationId.value = conversationId;
     await refreshConversations();
-    await loadMessages(conversationId);
+    await loadMessages(conversationId, true);
     const lastAssistant = [...messages.value].reverse().find((item) => item.role === "assistant");
     if (lastAssistant) {
       askMetaStore.save(conversationId, lastAssistant.id, {
@@ -93,6 +98,7 @@ async function handleAsk(question: string): Promise<void> {
     requestError.value = describeRequestError(error);
   } finally {
     asking.value = false;
+    pendingQuestion.value = "";
   }
 }
 
@@ -110,7 +116,7 @@ onMounted(async () => {
 
 <template>
   <div class="qa-page">
-    <el-card class="sidebar" shadow="never">
+    <aside class="qa-history">
       <ConversationList
         :items="conversations"
         :current-id="currentConversationId"
@@ -118,22 +124,25 @@ onMounted(async () => {
         @select="selectConversation"
         @create="startNewConversation"
       />
-    </el-card>
-    <el-card class="chat" shadow="never">
+    </aside>
+    <section class="qa-stage">
       <el-alert
         v-if="requestError"
         :title="requestError.title"
         :description="requestError.detail"
         type="error"
         show-icon
+        closable
         class="error-alert"
         @close="requestError = null"
       />
-      <div ref="messageWrap" class="messages" v-loading="messageLoading || asking">
-        <MessagePane :messages="messages" :meta-of="metaOf" />
+      <div ref="messageWrap" class="messages" v-loading="messageLoading">
+        <MessagePane :messages="messages" :meta-of="metaOf" :asking="asking" :pending-question="pendingQuestion" />
       </div>
-      <AskComposer ref="composerRef" :loading="asking" @submit="handleAsk" />
-    </el-card>
+      <div class="composer-dock">
+        <AskComposer ref="composerRef" :loading="asking" @submit="handleAsk" />
+      </div>
+    </section>
   </div>
 </template>
 
@@ -141,34 +150,51 @@ onMounted(async () => {
 .qa-page {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 16px;
-  height: calc(100vh - 108px);
-}
-
-.sidebar,
-.chat {
   height: 100%;
+  min-height: 0;
+  gap: 12px;
+  background: var(--color-page);
 }
 
-.chat {
-  display: flex;
-  flex-direction: column;
-}
-
-.chat :deep(.el-card__body) {
+.qa-history {
+  min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.qa-stage {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .error-alert {
-  margin-bottom: 12px;
+  margin: 12px 20px 0;
 }
 
 .messages {
   flex: 1;
   overflow: auto;
-  padding-right: 8px;
-  margin-bottom: 12px;
+}
+
+.composer-dock {
+  padding: 8px 20px 20px;
+  background: var(--color-card);
+}
+
+@media (max-width: 960px) {
+  .qa-page {
+    grid-template-columns: 220px 1fr;
+  }
 }
 </style>

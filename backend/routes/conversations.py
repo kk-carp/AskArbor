@@ -30,6 +30,7 @@ async def get_conversations(request: Request) -> list[ConversationItem]:
             created_at=item.created_at,
             updated_at=item.updated_at,
             message_count=item.message_count,
+            preview=item.preview,
         )
         for item in items
     ]

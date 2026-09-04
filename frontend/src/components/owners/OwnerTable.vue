@@ -18,7 +18,7 @@ const emit = defineEmits<{
 
 <template>
   <div>
-    <el-table :data="rows" v-loading="loading" stripe empty-text="暂无主题负责人">
+    <el-table :data="rows" v-loading="loading" empty-text="暂无主题负责人">
       <el-table-column label="主题 key" prop="topic_key" width="140" />
       <el-table-column label="主题名称" prop="topic_name" width="160" />
       <el-table-column label="关键词" prop="keywords" min-width="180" show-overflow-tooltip />

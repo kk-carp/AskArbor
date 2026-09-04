@@ -54,6 +54,7 @@ export interface ConversationItem {
   created_at: string;
   updated_at: string;
   message_count: number;
+  preview: string;
 }
 
 /** GET /conversations/{id}/messages 列表项（不含 hit） */

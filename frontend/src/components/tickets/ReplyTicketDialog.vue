@@ -51,7 +51,6 @@ async function handleSubmit(): Promise<void> {
         <el-input v-model="form.reply" type="textarea" :rows="4" />
       </el-form-item>
     </el-form>
-    <p class="hint">回复不会写入知识库。</p>
     <template #footer>
       <el-button @click="emit('update:visible', false)">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="handleSubmit">提交回复</el-button>
@@ -62,12 +61,12 @@ async function handleSubmit(): Promise<void> {
 <style scoped>
 .question {
   margin: 0 0 12px;
-  color: #303133;
+  color: var(--color-ink);
 }
 
 .hint {
   margin: 0;
-  color: #909399;
+  color: var(--color-muted);
   font-size: 12px;
 }
 </style>

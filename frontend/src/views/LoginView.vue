@@ -3,6 +3,7 @@ import { reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
+import BrandMark from "@/components/BrandMark.vue";
 import { useUserStore } from "@/stores/user";
 import { describeRequestError } from "@/utils/errors";
 
@@ -63,10 +64,15 @@ async function handleSubmit(): Promise<void> {
 
 <template>
   <div class="login-page">
-    <el-card class="login-card" shadow="hover">
-      <h1>统一知识助手</h1>
-      <p class="hint">可检索空间由服务端按账号成员关系计算，页面不能切换空间。</p>
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+    <div class="login-card">
+      <div class="login-brand">
+        <BrandMark :size="40" />
+        <div>
+          <h1>统一知识助手</h1>
+          <p class="hint"></p>
+        </div>
+      </div>
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="handleSubmit">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" autocomplete="username" @keyup.enter="handleSubmit" />
         </el-form-item>
@@ -82,12 +88,12 @@ async function handleSubmit(): Promise<void> {
         <el-button type="primary" :loading="submitting" class="submit-btn" @click="handleSubmit">登录</el-button>
       </el-form>
       <div class="demo">
-        <span>演示账号：</span>
-        <el-button v-for="item in demoAccounts" :key="item.username" size="small" @click="fillDemo(item.username)">
+        <span>演示账号</span>
+        <button v-for="item in demoAccounts" :key="item.username" type="button" class="demo-chip" @click="fillDemo(item.username)">
           {{ item.label }}
-        </el-button>
+        </button>
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -97,35 +103,69 @@ async function handleSubmit(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #eef3f8 0%, #f5f7fa 100%);
+  padding: 32px 16px;
+  background: var(--color-page);
 }
 
 .login-card {
   width: 420px;
+  padding: 32px;
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.login-brand {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
 h1 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  font-family: var(--font-read);
   font-size: 22px;
+  font-weight: 700;
+  color: var(--color-ink);
 }
 
 .hint {
-  margin: 0 0 16px;
-  color: #909399;
+  margin: 0;
+  color: var(--color-muted);
   font-size: 13px;
+  line-height: 1.6;
 }
 
 .submit-btn {
   width: 100%;
+  height: 40px;
+  margin-top: 4px;
 }
 
 .demo {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  color: #606266;
+  color: var(--color-muted);
   font-size: 13px;
+}
+
+.demo-chip {
+  border: 1px solid var(--color-line);
+  background: var(--color-page);
+  color: var(--color-ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.demo-chip:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 </style>

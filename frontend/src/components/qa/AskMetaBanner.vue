@@ -22,34 +22,17 @@ function goTicket(): void {
 
 <template>
   <div v-if="meta" class="meta-banner">
-    <el-tag :type="meta.hit ? 'success' : 'warning'" effect="light">
-      {{ meta.hit ? "命中知识库" : "未命中知识库" }}
-    </el-tag>
-    <el-alert
-      v-if="showTicket"
-      class="meta-alert"
-      type="info"
-      :closable="false"
-      title="已自动创建学员工单"
-      :description="`工单号：${meta.ticket_id}`"
-    >
+    <span class="hit-pill" :class="meta.hit ? 'hit' : 'miss'">
+      {{ meta.hit ? "已命中知识库" : "未命中知识库" }}
+    </span>
+    <div v-if="showTicket" class="note">
+      <span>已自动创建学员工单 {{ meta.ticket_id }}</span>
       <el-button type="primary" link @click="goTicket">去工单页查看</el-button>
-    </el-alert>
-    <el-alert
-      v-if="showOwner && meta.owner?.configured"
-      class="meta-alert"
-      type="info"
-      :closable="false"
-      :title="`主题负责人：${meta.owner.name}（${meta.owner.topic_name}）`"
-      :description="`联系方式：${meta.owner.contact}`"
-    />
-    <el-alert
-      v-if="showOwner && meta.owner && !meta.owner.configured"
-      class="meta-alert"
-      type="info"
-      :closable="false"
-      title="该问题未配置主题负责人"
-    />
+    </div>
+    <div v-if="showOwner && meta.owner?.configured" class="note">
+      主题负责人 {{ meta.owner.name }}（{{ meta.owner.topic_name }}），联系方式：{{ meta.owner.contact }}
+    </div>
+    <div v-if="showOwner && meta.owner && !meta.owner.configured" class="note">该问题未配置主题负责人</div>
   </div>
 </template>
 
@@ -57,11 +40,34 @@ function goTicket(): void {
 .meta-banner {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  margin: 8px 0;
+  margin-top: 12px;
+  font-family: var(--font-ui);
 }
 
-.meta-alert {
-  margin: 0;
+.hit-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hit-pill.hit {
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.hit-pill.miss {
+  color: #9a3412;
+  background: #fff7ed;
+}
+
+.note {
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.6;
 }
 </style>

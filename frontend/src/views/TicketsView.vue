@@ -133,8 +133,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <p class="caption">
+  <div class="page-panel">
+    <p class="page-caption">
       仅学员可显式建单；处理人由服务端按班主任计算。列表由接口过滤，回复不会入库。
     </p>
     <el-alert
@@ -169,16 +169,10 @@ onMounted(() => {
       :ticket="currentTicket"
       @submit="handleReply"
     />
-  </el-card>
+  </div>
 </template>
 
 <style scoped>
-.caption {
-  margin: 0 0 12px;
-  color: #909399;
-  font-size: 13px;
-}
-
 .highlight {
   margin-bottom: 12px;
 }

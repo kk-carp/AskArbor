@@ -27,6 +27,7 @@ class ConversationSummary:
     created_at: datetime
     updated_at: datetime
     message_count: int
+    preview: str
 
 
 @dataclass(frozen=True)
@@ -131,12 +132,19 @@ def list_conversations_for_user(user_id: str) -> list[ConversationSummary]:
                 .select_from(Message)
                 .where(Message.conversation_id == item.id)
             )
+            first_question = session.scalar(
+                select(Message.content)
+                .where(Message.conversation_id == item.id, Message.role == "user")
+                .order_by(Message.created_at.asc())
+                .limit(1)
+            )
             result.append(
                 ConversationSummary(
                     id=UUID(item.id),
                     created_at=item.created_at,
                     updated_at=item.updated_at,
                     message_count=int(count or 0),
+                    preview=(first_question or "").strip(),
                 )
             )
         return result

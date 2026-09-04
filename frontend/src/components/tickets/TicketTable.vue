@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 <template>
   <div>
-    <el-table :data="rows" v-loading="loading" stripe empty-text="暂无可见工单">
+    <el-table :data="rows" v-loading="loading" empty-text="暂无可见工单">
       <el-table-column label="问题" prop="question" min-width="220" show-overflow-tooltip />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
@@ -71,7 +71,7 @@ const emit = defineEmits<{
 }
 
 .muted {
-  color: #909399;
+  color: var(--color-muted);
   font-size: 13px;
 }
 </style>

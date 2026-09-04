@@ -68,6 +68,7 @@ class ConversationItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     message_count: int
+    preview: str
 
 
 class MessageItem(BaseModel):

@@ -1,45 +1,93 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { SourceItem } from "@/types";
 import { spaceLabel } from "@/utils/labels";
 
-defineProps<{
+const props = defineProps<{
   sources: SourceItem[];
 }>();
+
+const countLabel = computed(() => `参考 ${props.sources.length} 篇资料`);
 </script>
 
 <template>
-  <div class="source-block">
-    <div class="source-title">来源</div>
-    <p v-if="!sources.length" class="empty">无来源</p>
-    <ul v-else>
+  <details v-if="sources.length" class="source-fold">
+    <summary>{{ countLabel }}</summary>
+    <ul>
       <li v-for="item in sources" :key="item.document_id">
-        <strong>{{ item.title }}</strong>
-        <span>（{{ spaceLabel(item.space_id) }}）</span>
-        <span v-if="item.path"> · {{ item.path }}</span>
+        <span class="source-title">{{ item.title }}</span>
+        <span class="source-space">{{ spaceLabel(item.space_id) }}</span>
+        <span v-if="item.path" class="source-path">{{ item.path }}</span>
       </li>
     </ul>
-  </div>
+  </details>
 </template>
 
 <style scoped>
-.source-block {
-  margin-top: 8px;
+.source-fold {
+  margin-top: 12px;
+  font-family: var(--font-ui);
   font-size: 13px;
-  color: #606266;
-}
-
-.source-title {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.empty,
-ul {
-  margin: 0;
+  color: var(--color-muted);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-page);
   padding: 0;
 }
 
+.source-fold summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  list-style: none;
+}
+
+.source-fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.source-fold summary::after {
+  content: "";
+  float: right;
+  margin-top: 7px;
+  border: 4px solid transparent;
+  border-top-color: var(--color-muted);
+}
+
+.source-fold[open] summary::after {
+  margin-top: 3px;
+  border-top-color: transparent;
+  border-bottom-color: var(--color-muted);
+}
+
 ul {
-  padding-left: 18px;
+  margin: 0;
+  padding: 0 12px 10px;
+  list-style: none;
+}
+
+li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.source-title {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.source-space {
+  color: var(--color-primary);
+  font-size: 12px;
+}
+
+.source-path {
+  width: 100%;
+  font-size: 12px;
 }
 </style>

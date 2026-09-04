@@ -115,6 +115,7 @@ def test_list_conversations_and_messages(monkeypatch: pytest.MonkeyPatch) -> Non
                 created_at=now,
                 updated_at=now,
                 message_count=2,
+                preview="作业怎么交",
             )
         ],
     )
@@ -141,6 +142,7 @@ def test_list_conversations_and_messages(monkeypatch: pytest.MonkeyPatch) -> Non
         assert listed.status_code == 200
         assert listed.json()[0]["id"] == str(conversation_id)
         assert listed.json()[0]["message_count"] == 2
+        assert listed.json()[0]["preview"] == "作业怎么交"
 
         messages = client.get(f"/conversations/{conversation_id}/messages")
         assert messages.status_code == 200

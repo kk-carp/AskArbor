@@ -92,8 +92,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <p class="caption">联系方式只来自本表提交值，不调用模型生成。仅教学岗可配置。</p>
+  <div class="page-panel">
+    <p class="page-caption">联系方式只来自本表提交值，不调用模型生成。仅教学岗可配置。</p>
     <OwnerSearchForm :model="query" @search="handleSearch" @reset="handleReset" @create="openCreate" />
     <OwnerTable
       :rows="pagedRows"
@@ -111,13 +111,5 @@ onMounted(() => {
       :editing="editing"
       @submit="handleSave"
     />
-  </el-card>
+  </div>
 </template>
-
-<style scoped>
-.caption {
-  margin: 0 0 12px;
-  color: #909399;
-  font-size: 13px;
-}
-</style>

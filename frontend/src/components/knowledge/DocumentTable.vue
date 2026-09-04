@@ -32,7 +32,7 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
 
 <template>
   <div>
-    <el-table :data="rows" v-loading="loading" stripe empty-text="暂无文档">
+    <el-table :data="rows" v-loading="loading" empty-text="暂无文档">
       <el-table-column label="标题" prop="title" min-width="180" />
       <el-table-column label="空间" width="120">
         <template #default="{ row }">{{ spaceLabel(row.space_id) }}</template>
@@ -86,7 +86,7 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
 }
 
 .muted {
-  color: #909399;
+  color: var(--color-muted);
   font-size: 13px;
 }
 </style>

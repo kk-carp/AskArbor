@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ConversationItem } from "@/types";
-import { formatDateTime, shortId } from "@/utils/labels";
+import { formatDateTime } from "@/utils/labels";
 
 defineProps<{
   items: ConversationItem[];
@@ -12,13 +12,18 @@ const emit = defineEmits<{
   select: [id: string | null];
   create: [];
 }>();
+
+function conversationTitle(item: ConversationItem): string {
+  const text = item.preview?.trim();
+  return text || "新会话";
+}
 </script>
 
 <template>
   <div class="conversation-list">
-    <el-button type="primary" class="new-btn" @click="emit('create')">开启新会话</el-button>
+    <el-button type="primary" class="new-btn" @click="emit('create')">新对话</el-button>
     <el-skeleton :loading="loading" animated :rows="6">
-      <el-empty v-if="!items.length" description="暂无历史会话" :image-size="64" />
+      <el-empty v-if="!items.length" description="还没有历史对话" :image-size="56" />
       <el-scrollbar v-else height="100%">
         <button
           v-for="item in items"
@@ -26,10 +31,11 @@ const emit = defineEmits<{
           type="button"
           class="conv-item"
           :class="{ active: item.id === currentId }"
+          :title="conversationTitle(item)"
           @click="emit('select', item.id)"
         >
-          <div class="conv-id">{{ shortId(item.id) }}</div>
-          <div class="conv-meta">{{ item.message_count }} 条 · {{ formatDateTime(item.updated_at) }}</div>
+          <div class="conv-title">{{ conversationTitle(item) }}</div>
+          <div class="conv-meta">{{ item.message_count }} 条，{{ formatDateTime(item.updated_at) }}</div>
         </button>
       </el-scrollbar>
     </el-skeleton>
@@ -42,34 +48,52 @@ const emit = defineEmits<{
   flex-direction: column;
   gap: 12px;
   height: 100%;
+  padding: 16px 12px 12px;
+}
+
+.conversation-list :deep(.el-skeleton),
+.conversation-list :deep(.el-scrollbar) {
+  flex: 1;
+  min-height: 0;
 }
 
 .new-btn {
   width: 100%;
+  height: 38px;
+  border-radius: 10px;
 }
 
 .conv-item {
   width: 100%;
   text-align: left;
-  border: 1px solid #ebeef5;
-  background: #fff;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
   padding: 10px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   cursor: pointer;
+  color: var(--color-ink);
+}
+
+.conv-item:hover {
+  background: var(--color-page);
 }
 
 .conv-item.active {
-  border-color: #409eff;
-  background: #ecf5ff;
+  background: var(--color-primary-soft);
+  border-color: transparent;
 }
 
-.conv-id {
+.conv-title {
   font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .conv-meta {
-  color: #909399;
+  color: var(--color-muted);
   font-size: 12px;
   margin-top: 4px;
 }
