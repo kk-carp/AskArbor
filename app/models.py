@@ -128,3 +128,56 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class TicketStatus(str, Enum):
+    open = "open"
+    replied = "replied"
+
+
+class Ticket(Base):
+    """学员工单；回复不写入 documents/chunks。"""
+
+    __tablename__ = "tickets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    student_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assignee_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=TicketStatus.open.value,
+    )
+    reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    conversation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class TopicOwner(Base):
+    """内部主题 → 负责人联系方式；仅员工未命中时查询，禁止模型编造。"""
+
+    __tablename__ = "topic_owners"
+
+    topic_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    topic_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    keywords: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    owner_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    contact: Mapped[str] = mapped_column(String(255), nullable=False)

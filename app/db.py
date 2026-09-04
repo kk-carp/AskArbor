@@ -42,8 +42,10 @@ def init_db() -> None:
             if space_id not in existing_spaces:
                 session.add(Space(id=space_id, name=name))
         from app.seed.demo_users import seed_demo_users
+        from app.seed.topic_owners import seed_topic_owners
 
         seed_demo_users(session)
+        seed_topic_owners(session)
         session.commit()
 
 

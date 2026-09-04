@@ -17,6 +17,7 @@ router = APIRouter(tags=["auth"])
 
 def _to_me_response(user: AuthUser) -> MeResponse:
     return MeResponse(
+        id=user.id,
         username=user.username,
         role=user.role,
         is_teaching=user.is_teaching,

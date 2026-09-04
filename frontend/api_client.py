@@ -136,3 +136,54 @@ def list_messages(conversation_id: str) -> list[dict[str, Any]]:
     if response.status_code != 200:
         raise RuntimeError(_detail(response))
     return response.json()
+
+
+def list_tickets() -> list[dict[str, Any]]:
+    response = get_client().get("/tickets")
+    if response.status_code != 200:
+        raise RuntimeError(_detail(response))
+    return response.json()
+
+
+def create_ticket(question: str, conversation_id: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"question": question}
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    response = get_client().post("/tickets", json=payload)
+    if response.status_code not in (200, 201):
+        raise RuntimeError(_detail(response))
+    return response.json()
+
+
+def reply_ticket(ticket_id: str, reply: str) -> dict[str, Any]:
+    response = get_client().post(f"/tickets/{ticket_id}/reply", json={"reply": reply})
+    if response.status_code != 200:
+        raise RuntimeError(_detail(response))
+    return response.json()
+
+
+def list_topic_owners() -> list[dict[str, Any]]:
+    response = get_client().get("/topic_owners")
+    if response.status_code != 200:
+        raise RuntimeError(_detail(response))
+    return response.json()
+
+
+def upsert_topic_owner(
+    topic_key: str,
+    topic_name: str,
+    keywords: str,
+    name: str,
+    contact: str,
+) -> dict[str, Any]:
+    payload = {
+        "topic_key": topic_key,
+        "topic_name": topic_name,
+        "keywords": keywords,
+        "name": name,
+        "contact": contact,
+    }
+    response = get_client().put("/topic_owners", json=payload)
+    if response.status_code != 200:
+        raise RuntimeError(_detail(response))
+    return response.json()

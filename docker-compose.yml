@@ -15,5 +15,39 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/fde
+      CHAT_BASE_URL: ${CHAT_BASE_URL:-https://api.deepseek.com}
+      CHAT_API_KEY: ${CHAT_API_KEY:-}
+      CHAT_MODEL: ${CHAT_MODEL:-deepseek-chat}
+      SECRET_KEY: ${SECRET_KEY:-change-me-for-local-dev}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+      UPLOAD_DIR: data/uploads
+      HF_HOME: /cache/huggingface
+    volumes:
+      - hf-cache:/cache/huggingface
+      - uploads:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/health')); raise SystemExit(0 if d.get('api') and d.get('database') and d.get('embedding_loaded') else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 600s
+
 volumes:
   pgdata:
+  hf-cache:
+  uploads:

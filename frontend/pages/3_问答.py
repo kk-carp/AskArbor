@@ -11,6 +11,7 @@ st.title("问答")
 st.caption(
     "客户端不得指定 space_ids；未命中返回固定拒答且不调用 DeepSeek。"
     "同一会话可追问；对话不进入向量索引。"
+    "员工未命中时展示主题负责人（来自配置表，非模型生成）。"
 )
 
 user = require_login()
@@ -76,6 +77,20 @@ if conversation_id:
         role = "user" if item.get("role") == "user" else "assistant"
         with st.chat_message(role):
             st.write(item.get("content") or "")
+    meta = st.session_state.get("last_miss_meta") or {}
+    if meta.get("conversation_id") == conversation_id and meta.get("hit") is False:
+        ticket_id = meta.get("ticket_id")
+        if ticket_id:
+            st.info(f"已自动创建学员工单：`{ticket_id}`（可在「工单」页查看）")
+        owner = meta.get("owner")
+        if owner is not None:
+            if owner.get("configured"):
+                st.info(
+                    f"主题负责人：{owner.get('name')}（{owner.get('topic_name')}）｜"
+                    f"联系方式：{owner.get('contact')}"
+                )
+            else:
+                st.info("该问题未配置主题负责人。")
 else:
     st.caption("当前为新会话；首次提问后会返回并保存 conversation_id。")
 
@@ -97,10 +112,28 @@ if ask:
                 if new_cid:
                     st.session_state.conversation_id = new_cid
                 hit = bool(result.get("hit"))
+                st.session_state.last_miss_meta = {
+                    "conversation_id": new_cid,
+                    "hit": hit,
+                    "ticket_id": result.get("ticket_id"),
+                    "owner": result.get("owner"),
+                }
                 if hit:
                     st.success("命中知识库")
                 else:
                     st.warning("未命中知识库（已拒答）")
+                    ticket_id = result.get("ticket_id")
+                    if ticket_id:
+                        st.info(f"已自动创建学员工单：`{ticket_id}`（可在「工单」页查看）")
+                    owner = result.get("owner")
+                    if owner is not None:
+                        if owner.get("configured"):
+                            st.info(
+                                f"主题负责人：{owner.get('name')}（{owner.get('topic_name')}）｜"
+                                f"联系方式：{owner.get('contact')}"
+                            )
+                        else:
+                            st.info("该问题未配置主题负责人。")
                 st.subheader("答案")
                 st.write(result.get("answer") or "")
                 st.subheader("来源")

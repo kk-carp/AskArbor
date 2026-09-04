@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.db import init_db
 from app.infra.embed import load_model
-from app.routes import ask, auth, conversations, documents, health
+from app.routes import ask, auth, conversations, documents, health, tickets, topic_owners
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -43,6 +43,8 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(ask.router)
 app.include_router(conversations.router)
+app.include_router(tickets.router)
+app.include_router(topic_owners.router)
 
 
 @app.get("/")

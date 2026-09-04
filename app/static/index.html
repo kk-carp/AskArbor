@@ -94,6 +94,7 @@
       <p><button id="askBtn" type="button">提问</button></p>
       <h3>答案</h3>
       <p id="answer">请先登录并提问。</p>
+      <p id="ownerInfo" class="hint"></p>
       <h3>来源</h3>
       <ul id="sources"></ul>
       <p id="askStatus" class="hint"></p>
@@ -117,6 +118,7 @@
       const askBtn = document.getElementById("askBtn");
       const askStatus = document.getElementById("askStatus");
       const answerEl = document.getElementById("answer");
+      const ownerInfoEl = document.getElementById("ownerInfo");
       const sourcesEl = document.getElementById("sources");
 
       let currentUser = null;
@@ -356,6 +358,7 @@
         askBtn.disabled = true;
         setAskStatus("提问中...");
         answerEl.textContent = "";
+        ownerInfoEl.textContent = "";
         sourcesEl.innerHTML = "";
 
         try {
@@ -380,6 +383,15 @@
           }
 
           answerEl.textContent = data.answer;
+          if (data.owner && data.owner.configured) {
+            ownerInfoEl.textContent = `主题负责人：${data.owner.name}（${data.owner.topic_name}），联系方式：${data.owner.contact}`;
+          } else if (data.owner && data.owner.configured === false) {
+            ownerInfoEl.textContent = "该问题未配置主题负责人。";
+          } else if (data.ticket_id) {
+            ownerInfoEl.textContent = `已创建学员工单：${data.ticket_id}`;
+          } else {
+            ownerInfoEl.textContent = "";
+          }
           if (!data.sources || data.sources.length === 0) {
             sourcesEl.innerHTML = "<li>无来源</li>";
           } else {

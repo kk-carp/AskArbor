@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -7,15 +8,19 @@ from app.errors import ServiceUnavailableError, UpstreamServiceError
 from app.infra.embed import encode_query, is_loaded
 from app.infra.generate import generate_answer
 from app.infra.retrieve import search_chunks
-from app.schemas import SourceItem
+from app.schemas import OwnerInfo, SourceItem
 from app.services.conversation_service import (
     ConversationNotFoundError,
     append_turn,
     get_or_create_conversation,
     load_recent_history,
 )
+from app.services.ticket_service import create_ticket_for_student
+from app.services.topic_owner_service import lookup_owner_for_employee
 
 MISS_ANSWER = "知识库中没有足够依据回答这个问题。"
+
+_audit_logger = logging.getLogger("app.audit")
 
 
 @dataclass(frozen=True)
@@ -24,6 +29,8 @@ class AskResult:
     hit: bool
     sources: list[SourceItem]
     conversation_id: UUID | None = None
+    ticket_id: UUID | None = None
+    owner: OwnerInfo | None = None
 
 
 def _build_sources(retrieved) -> list[SourceItem]:
@@ -46,14 +53,62 @@ def _build_sources(retrieved) -> list[SourceItem]:
     return unique_sources
 
 
+def _write_audit(
+    *,
+    user_id: str | None,
+    user_role: str | None,
+    allowed_spaces: list[str],
+    hit: bool | None,
+    document_ids: list[str],
+    error_type: str,
+) -> None:
+    """最小审计：用户、角色、空间、是否命中、引用文档 ID、错误类型。不含密钥与正文。"""
+    if user_id is None:
+        return
+    _audit_logger.info(
+        "ask user_id=%s role=%s spaces=%s hit=%s docs=%s error=%s",
+        user_id,
+        user_role or "",
+        ",".join(allowed_spaces),
+        "true" if hit is True else "false" if hit is False else "",
+        ",".join(document_ids),
+        error_type,
+    )
+
+
+def _maybe_create_student_ticket(
+    session,
+    *,
+    user_id: str | None,
+    user_role: str | None,
+    advisor_id: str | None,
+    question: str,
+    conversation_id: str | None,
+) -> UUID | None:
+    """学员未命中自动建单；非学员跳过；无班主任则抛 TicketError。"""
+    if user_id is None or user_role != "student":
+        return None
+    ticket = create_ticket_for_student(
+        session,
+        student_id=user_id,
+        student_role=user_role,
+        advisor_id=advisor_id,
+        question=question,
+        conversation_id=conversation_id,
+    )
+    return UUID(ticket.id)
+
+
 def answer_question(
     allowed_spaces: list[str],
     question: str,
     *,
     user_id: str | None = None,
+    user_role: str | None = None,
+    advisor_id: str | None = None,
     conversation_id: str | UUID | None = None,
 ) -> AskResult:
-    """在允许空间内回答问题；可选会话追问。502/503 不落库成功答案。"""
+    """在允许空间内回答问题；学员未命中建工单；员工未命中查负责人；502/503 不建单、不落库。"""
     normalized_question = question.strip()
     if not normalized_question:
         raise ValueError("问题不能为空")
@@ -82,20 +137,46 @@ def answer_question(
 
         history = load_recent_history(session, conversation_id=conversation.id)
 
-        if not allowed_spaces:
+        def _miss_result() -> AskResult:
             append_turn(
                 session,
                 conversation=conversation,
                 user_content=normalized_question,
                 assistant_content=MISS_ANSWER,
             )
+            ticket_id = _maybe_create_student_ticket(
+                session,
+                user_id=user_id,
+                user_role=user_role,
+                advisor_id=advisor_id,
+                question=normalized_question,
+                conversation_id=conversation.id,
+            )
+            owner = lookup_owner_for_employee(
+                session,
+                user_role=user_role,
+                question=normalized_question,
+            )
             session.commit()
+            _write_audit(
+                user_id=user_id,
+                user_role=user_role,
+                allowed_spaces=allowed_spaces,
+                hit=False,
+                document_ids=[],
+                error_type="miss",
+            )
             return AskResult(
                 answer=MISS_ANSWER,
                 hit=False,
                 sources=[],
                 conversation_id=UUID(conversation.id),
+                ticket_id=ticket_id,
+                owner=owner,
             )
+
+        if not allowed_spaces:
+            return _miss_result()
 
         query_vector = encode_query(normalized_question)
         retrieved = search_chunks(
@@ -104,35 +185,11 @@ def answer_question(
             top_k=settings.retrieve_top_k,
         )
         if not retrieved:
-            append_turn(
-                session,
-                conversation=conversation,
-                user_content=normalized_question,
-                assistant_content=MISS_ANSWER,
-            )
-            session.commit()
-            return AskResult(
-                answer=MISS_ANSWER,
-                hit=False,
-                sources=[],
-                conversation_id=UUID(conversation.id),
-            )
+            return _miss_result()
 
         top_score = max(item.score for item in retrieved)
         if top_score < settings.retrieve_min_score:
-            append_turn(
-                session,
-                conversation=conversation,
-                user_content=normalized_question,
-                assistant_content=MISS_ANSWER,
-            )
-            session.commit()
-            return AskResult(
-                answer=MISS_ANSWER,
-                hit=False,
-                sources=[],
-                conversation_id=UUID(conversation.id),
-            )
+            return _miss_result()
 
         history_tuples = [(item.role, item.content) for item in history]
         try:
@@ -141,9 +198,27 @@ def answer_question(
                 retrieved,
                 history=history_tuples,
             )
-        except (UpstreamServiceError, ServiceUnavailableError):
-            # 约定：502/503 整次回滚，不写入用户/助手消息，也不提交新建空会话
+        except UpstreamServiceError:
             session.rollback()
+            _write_audit(
+                user_id=user_id,
+                user_role=user_role,
+                allowed_spaces=allowed_spaces,
+                hit=None,
+                document_ids=[str(item.document_id) for item in retrieved],
+                error_type="502",
+            )
+            raise
+        except ServiceUnavailableError:
+            session.rollback()
+            _write_audit(
+                user_id=user_id,
+                user_role=user_role,
+                allowed_spaces=allowed_spaces,
+                hit=None,
+                document_ids=[str(item.document_id) for item in retrieved],
+                error_type="503",
+            )
             raise
 
         append_turn(
@@ -153,16 +228,27 @@ def answer_question(
             assistant_content=answer,
         )
         session.commit()
+        sources = _build_sources(retrieved)
+        _write_audit(
+            user_id=user_id,
+            user_role=user_role,
+            allowed_spaces=allowed_spaces,
+            hit=True,
+            document_ids=[str(item.document_id) for item in sources],
+            error_type="hit",
+        )
         return AskResult(
             answer=answer,
             hit=True,
-            sources=_build_sources(retrieved),
+            sources=sources,
             conversation_id=UUID(conversation.id),
+            ticket_id=None,
+            owner=None,
         )
 
 
 def _answer_without_conversation(allowed_spaces: list[str], normalized_question: str) -> AskResult:
-    """无 user_id 时保持单轮行为（供旧测试路径）。"""
+    """无 user_id 时保持单轮行为（供旧测试路径）；不建工单、不查负责人。"""
     if not allowed_spaces:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 

@@ -1,8 +1,8 @@
 # 统一知识助手
 
-FDE 课程实践 MVP：文档入库、按空间隔离检索、DeepSeek 作答、真实来源与未命中拒答。
+FDE 课程实践：文档入库、按空间隔离检索、DeepSeek 作答、真实来源与未命中拒答。
 
-当前仓库已实现：上传文档入库、登录后按空间成员隔离检索、命中后调用 DeepSeek、未命中固定拒答。产品定位为一套内核覆盖学伴与智能助手；需求、架构、选型与任务拆分见 `docs/`。
+当前仓库已实现 MVP 主链路，以及 V1 产品化能力：登录授权、文档下线、会话追问、学员工单、员工未命中负责人、Compose 整包 API + Postgres。需求、架构、选型与任务拆分见 `docs/`。
 
 ## 结构
 
@@ -13,14 +13,15 @@ app/
   domain/            领域规则（空间授权等）
   infra/             基础能力（解析/切片/检索/生成）
   seed/              演示账号种子
-frontend/            Streamlit 前端（登录 / 文档管理 / 问答）
+frontend/            Streamlit 前端（登录 / 文档管理 / 问答 / 工单 / 主题负责人）
 tests/
   unit/              单模块测试
   integration/       跨模块集成测试
 scripts/             验收与评测脚本
 docs/                需求/架构/任务与结构映射
 data/uploads/        本地上传目录
-docker-compose.yml   PostgreSQL 16 + pgvector
+docker-compose.yml   PostgreSQL 16 + pgvector，以及可选 API 服务
+Dockerfile           API 镜像（Compose 整包使用）
 requirements.txt
 .env.example
 ```
@@ -35,12 +36,14 @@ requirements.txt
 
 ## 本地启动
 
+本机 venv 跑 API 时，Compose **只起数据库**，避免与本机 `uvicorn` 抢 8000 端口：
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-docker compose up -d
+docker compose up -d postgres
 uvicorn app.main:app --reload
 ```
 
@@ -49,7 +52,7 @@ uvicorn app.main:app --reload
 - 演示页面（FastAPI 内置）：[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 - 健康检查：[http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
-### Streamlit 前端（三页）
+### Streamlit 前端
 
 另开终端，在 API 已启动的前提下执行：
 
@@ -61,7 +64,9 @@ streamlit run frontend/app.py
 
 1. **登录** — 账号登录 / 退出  
 2. **上传与文档管理** — 教学岗上传、列表、下线  
-3. **问答** — 登录态提问（空间由服务端成员关系决定）
+3. **问答** — 登录态提问（空间由服务端成员关系决定）；员工未命中展示负责人  
+4. **工单** — 学员未命中自动建单；班主任回复  
+5. **主题负责人** — 教学岗配置内部主题联系方式
 
 侧边栏可修改 API 地址（默认 `http://127.0.0.1:8000`）。Streamlit 通过服务端 `httpx` 携带 Session Cookie 调后端，不依赖浏览器跨域。
 
@@ -88,9 +93,39 @@ DEMO_PASSWORD=demo1234
 | --- | --- | --- | --- |
 | `student_demo` | 学员 | `student` | 班主任绑定到 `teaching_demo` |
 | `employee_demo` | 内部员工 | `company` | 不可上传文档 |
-| `teaching_demo` | 教学岗 | `student`、`company` | 可上传/下线文档 |
+| `teaching_demo` | 教学岗 | `student`、`company` | 可上传/下线文档、配置主题负责人 |
 
 本迭代用户仅种子账号，无开放注册接口。
+
+启动时还会幂等写入样例 `topic_owners`（请假 / 报销 / IT / 考勤）。联系方式为 `example.local` 演示值，不是真实人员；已有记录不会被覆盖。
+
+## Docker Compose 整包（API + Postgres）
+
+密钥从本机 `.env` 注入容器，**不要写进镜像**。`DATABASE_URL` 由 Compose 指向 `postgres` 服务，不会使用 `.env` 里的 `localhost`。
+
+```powershell
+copy .env.example .env
+# 编辑 .env，填入 CHAT_API_KEY，并修改 SECRET_KEY
+docker compose up -d --build
+```
+
+首次启动会下载 `BAAI/bge-m3`（约数 GB），`api` 健康检查的 `start_period` 为 10 分钟。模型缓存在 Docker 卷 `hf-cache`（容器内 `HF_HOME=/cache/huggingface`），下次启动可复用。
+
+下载模型受阻时，在 `docker-compose.yml` 的 `api.environment` 增加：
+
+```yaml
+HF_ENDPOINT: https://hf-mirror.com
+```
+
+等待 healthy 后：
+
+```powershell
+Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:8000/health"
+```
+
+期望 `api`、`database`、`embedding_loaded` 均为 `true`。仍为单体 FastAPI 进程，没有第二套检索服务。
+
+Streamlit 前端仍在本机另开终端：`streamlit run frontend/app.py`。
 
 ## 运行验证
 
@@ -176,5 +211,7 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 首次启动会下载并加载 `BAAI/bge-m3`，耗时会明显更长。
 - 问答改为登录态：`student_demo` 只能检索 `student`，`employee_demo` 只能检索 `company`，`teaching_demo` 可检索两者。
 - 文档上传/下线仅教学岗（或管理员）；`failed`/`offline` 文档不可检索。
+- 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
+- 问答审计日志（`app.audit`）：用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。
