@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-from urllib.parse import quote
 
 import httpx
 
@@ -13,7 +12,6 @@ from backend.infra.open_resource.sources import (
     SearchTimeoutError,
     SearchTool,
     SearchUnavailableError,
-    fetch_search_text,
     list_search_tools,
 )
 
@@ -31,17 +29,16 @@ def _query_variants(query: str) -> list[str]:
     return variants
 
 
-def search_open_resources(queries: list[str], *, fetch=None) -> list[ExternalResource]:
+def search_open_resources(queries: list[str]) -> list[ExternalResource]:
     """按薄弱点关键词检索已注册搜索工具，过滤后再返回。"""
-    fetch_fn = fetch or fetch_search_text
     raw_hits: list[dict[str, str]] = []
     timed_out = False
     unavailable = False
 
-    def _try_fetch(tool: SearchTool, encoded_query: str) -> None:
+    def _try_run(tool: SearchTool, query: str) -> None:
         nonlocal timed_out, unavailable
         try:
-            raw_hits.extend(tool.parse(fetch_fn(tool.build_url(encoded_query))))
+            raw_hits.extend(tool.run(query))
         except SearchTimeoutError:
             timed_out = True
         except SearchUnavailableError:
@@ -58,9 +55,8 @@ def search_open_resources(queries: list[str], *, fetch=None) -> list[ExternalRes
                 if variant in seen_q:
                     continue
                 seen_q.add(variant)
-                encoded = quote(variant)
                 for tool in list_search_tools():
-                    _try_fetch(tool, encoded)
+                    _try_run(tool, variant)
     except Exception as exc:
         _logger.warning("open resource search failed: %s", exc)
         raise SearchUnavailableError("课外搜索不可用") from exc

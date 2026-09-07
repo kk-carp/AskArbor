@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from backend.config import settings
 
-SEARCH_REQUEST_HOSTS = frozenset({"export.arxiv.org", "html.duckduckgo.com"})
+SEARCH_REQUEST_HOSTS = frozenset({"export.arxiv.org"})
 
 ALLOWED_RESULT_HOSTS = frozenset(
     {

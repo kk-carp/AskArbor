@@ -43,6 +43,7 @@ class SourceItem(BaseModel):
     title: str
     space_id: str
     path: str | None = None
+    score: float | None = None
 
 
 class OwnerInfo(BaseModel):

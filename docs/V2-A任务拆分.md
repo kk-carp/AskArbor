@@ -73,7 +73,7 @@ V2-A4 学习路径（V1 会话 + student 检索 + 课外搜索）
 | 演示用课程代码包路径结构 | 虚构课程即可，例如 `docs/samples/v2a/` | A1 |
 | OCR 引擎 | PaddleOCR；失败与未命中分语义 | A5 |
 | 学习路径测验 | 第一期只用 V1 会话；不建 `knowledge_points` / `learner_signals` | A4 已拍板 |
-| 网页搜索供应商 | 默认 `httpx` + DuckDuckGo，结果过白名单；改 Firecrawl 等须先写选型 | A4 |
+| 网页搜索供应商 | 默认 `httpx` + Tavily（`TAVILY_API_KEY`）+ arXiv；结果过白名单 | A4 |
 | 对标课程品牌/域名 | `LEARNING_PATH_BLOCK_KEYWORDS` / `LEARNING_PATH_BLOCK_HOSTS`；未提供则只拦通用收费课/训练营 | A4 |
 
 
@@ -174,7 +174,7 @@ pytest tests/unit/test_code_ingest.py tests/unit/test_retrieve.py tests/integrat
 
 **已有可复用：** `conversations` / `messages`（V1-T4）；A1 之后的 student 检索与 path；`httpx`（`requirements.txt` 已有）。
 
-**开工前：** 把课外搜索供应商与超时写入 `docs/技术选型.md` §9.2（默认 DuckDuckGo + arXiv，见需求 2.3 / 2.4）。对标品牌有则写入配置说明。
+**开工前：** 把课外搜索供应商与超时写入 `docs/技术选型.md` §9.2（默认 Tavily + arXiv，见需求 2.3 / 2.4）。对标品牌有则写入配置说明。
 
 **差距动作：**
 

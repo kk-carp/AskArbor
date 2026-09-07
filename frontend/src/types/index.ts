@@ -27,6 +27,8 @@ export interface SourceItem {
   title: string;
   space_id: SpaceId;
   path?: string | null;
+  /** 向量相似度（越高越相关）；旧响应可能缺省 */
+  score?: number | null;
 }
 
 /** 员工未命中时的主题负责人 */

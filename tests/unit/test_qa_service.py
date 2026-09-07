@@ -127,6 +127,7 @@ def test_answer_question_hit_builds_sources_from_retrieval(
     assert result.sources[0].document_id == doc_id
     assert result.sources[0].title == "课程说明.md"
     assert result.sources[0].path is None
+    assert result.sources[0].score == 0.9
 
 
 def test_answer_question_hit_copies_path_from_retrieval(
@@ -158,6 +159,7 @@ def test_answer_question_hit_copies_path_from_retrieval(
     assert result.hit is True
     assert result.sources[0].path == "labs/sort.py"
     assert result.sources[0].title == "labs/sort.py"
+    assert result.sources[0].score == 0.91
 
 
 def test_answer_question_raises_when_question_empty() -> None:

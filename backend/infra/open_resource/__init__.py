@@ -1,4 +1,4 @@
-"""课外开源/免费资料搜索：只请求白名单搜索主机，结果再过展示白名单。"""
+"""课外开源/免费资料搜索：arXiv + Tavily，结果再过展示白名单。"""
 
 from backend.infra.open_resource.bootstrap import init_open_resource_search_tools
 from backend.infra.open_resource.policy import (
@@ -16,10 +16,11 @@ from backend.infra.open_resource.sources import (
     fetch_search_text,
     list_search_tools,
     parse_arxiv_atom,
-    parse_duckduckgo_html,
+    parse_tavily_results,
     register_search_tool,
     reset_default_search_tools,
-    unwrap_result_url,
+    run_arxiv_search,
+    run_tavily_search,
 )
 
 __all__ = [
@@ -35,9 +36,10 @@ __all__ = [
     "list_search_tools",
     "normalize_host",
     "parse_arxiv_atom",
-    "parse_duckduckgo_html",
+    "parse_tavily_results",
     "register_search_tool",
     "reset_default_search_tools",
+    "run_arxiv_search",
+    "run_tavily_search",
     "search_open_resources",
-    "unwrap_result_url",
 ]
