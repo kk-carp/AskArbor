@@ -1,4 +1,10 @@
-from backend.domain.membership import expected_spaces, get_allowed_spaces_for_user
+import pytest
+
+from backend.domain.membership import (
+    expected_spaces,
+    get_allowed_spaces_for_role,
+    get_allowed_spaces_for_user,
+)
 
 
 def test_expected_spaces_for_student() -> None:
@@ -59,3 +65,33 @@ def test_get_allowed_spaces_for_user_returns_empty_without_membership(monkeypatc
     monkeypatch.setattr("backend.domain.membership.db.SessionLocal", lambda: _Session())
 
     assert get_allowed_spaces_for_user("user-1") == []
+
+
+@pytest.mark.parametrize(
+    ("role", "expected"),
+    [
+        ("student", ["student"]),
+        ("employee", ["company"]),
+        ("teaching", ["student", "company"]),
+    ],
+)
+def test_get_allowed_spaces_for_role_returns_expected_mapping(role: str, expected: list[str]) -> None:
+    assert get_allowed_spaces_for_role(role) == expected
+
+
+@pytest.mark.parametrize("invalid_role", ["admin", "", "   "])
+def test_get_allowed_spaces_for_role_raises_for_invalid_role(invalid_role: str) -> None:
+    with pytest.raises(ValueError, match="Invalid role:"):
+        get_allowed_spaces_for_role(invalid_role)
+
+
+def test_get_allowed_spaces_for_role_raises_for_non_string_role() -> None:
+    with pytest.raises(ValueError, match="Invalid role:"):
+        get_allowed_spaces_for_role(None)  # type: ignore[arg-type]
+
+
+def test_get_allowed_spaces_for_role_returns_new_list_instance() -> None:
+    first = get_allowed_spaces_for_role("student")
+    second = get_allowed_spaces_for_role("student")
+    assert first == second == ["student"]
+    assert first is not second

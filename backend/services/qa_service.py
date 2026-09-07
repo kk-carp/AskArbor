@@ -46,6 +46,7 @@ def _build_sources(retrieved) -> list[SourceItem]:
                 document_id=item.document_id,
                 title=item.title,
                 space_id=item.space_id,
+                path=item.path,
             )
         )
         if len(unique_sources) >= 3:

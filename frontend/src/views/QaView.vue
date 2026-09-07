@@ -190,6 +190,7 @@ onMounted(async () => {
 .composer-dock {
   padding: 8px 20px 20px;
   background: var(--color-card);
+  border-radius: var(--radius-md);
 }
 
 @media (max-width: 960px) {

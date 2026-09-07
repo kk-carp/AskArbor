@@ -20,6 +20,8 @@ class DocumentResult:
     space_id: str
     status: str
     chunk_count: int
+    error: str | None = None
+    path: str | None = None
 
 
 def ingest_document(file: UploadFile, space_id: str) -> DocumentResult:

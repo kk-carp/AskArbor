@@ -9,6 +9,9 @@ export const useUserStore = defineStore("user", () => {
 
   const isLoggedIn = computed(() => currentUser.value !== null);
   const canManageDocuments = computed(() => Boolean(currentUser.value?.can_manage_documents));
+  const canUseCompanion = computed(
+    () => Boolean(currentUser.value?.allowed_spaces?.includes("student")),
+  );
 
   function clearSession(): void {
     currentUser.value = null;
@@ -43,6 +46,7 @@ export const useUserStore = defineStore("user", () => {
     bootstrapped,
     isLoggedIn,
     canManageDocuments,
+    canUseCompanion,
     clearSession,
     bootstrap,
     login,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ChatDotRound, Expand, FolderOpened, Fold, Tickets, UserFilled } from "@element-plus/icons-vue";
+import { ChatDotRound, Expand, FolderOpened, Fold, Reading, Tickets, UserFilled } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import BrandMark from "@/components/BrandMark.vue";
 import { useUserStore } from "@/stores/user";
@@ -15,15 +15,17 @@ const userStore = useUserStore();
 
 const user = computed(() => userStore.currentUser);
 const canManage = computed(() => userStore.canManageDocuments);
+const canUseCompanion = computed(() => userStore.canUseCompanion);
 const collapsed = ref(readCollapsed());
 const asideWidth = computed(() => (collapsed.value ? "72px" : "228px"));
 const isQa = computed(() => route.name === "qa");
 
 const menuItems = computed(() => {
-  const items = [
-    { index: "/qa", title: "问答", icon: ChatDotRound },
-    { index: "/work-orders", title: "工单", icon: Tickets },
-  ];
+  const items = [{ index: "/qa", title: "问答", icon: ChatDotRound }];
+  if (canUseCompanion.value) {
+    items.push({ index: "/study-path", title: "学习路径", icon: Reading });
+  }
+  items.push({ index: "/work-orders", title: "工单", icon: Tickets });
   if (canManage.value) {
     items.push({ index: "/knowledge", title: "文档管理", icon: FolderOpened });
     items.push({ index: "/topic-owners", title: "主题负责人", icon: UserFilled });

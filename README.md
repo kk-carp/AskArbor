@@ -20,7 +20,7 @@ tests/
 scripts/             验收与评测脚本
 docs/                需求/架构/任务与结构映射
 data/uploads/        本地上传目录
-docker-compose.yml   PostgreSQL 16 + pgvector，以及可选 API 服务
+docker-compose.yml   PostgreSQL 16 + pgvector，以及可选 API
 Dockerfile           API 镜像（Compose 整包使用）
 requirements.txt
 .env.example
@@ -186,6 +186,13 @@ curl.exe -c cookies.txt -b cookies.txt -X POST "http://127.0.0.1:8000/documents"
   -F "file=@D:\path\to\course.md"
 
 curl.exe -c cookies.txt -b cookies.txt -X GET "http://127.0.0.1:8000/documents"
+```
+
+课程代码 zip 固定写入 `student`（忽略表单里的 `space`）。样例见 `docs/samples/v2a/`。
+
+```powershell
+curl.exe -c cookies.txt -b cookies.txt -X POST "http://127.0.0.1:8000/code-ingest" `
+  -F "file=@D:\FDE\docs\samples\v2a\course_code.zip"
 ```
 
 ### 4) 登录后提问

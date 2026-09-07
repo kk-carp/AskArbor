@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { listDocuments, offlineDocument, uploadDocument } from "@/api/documents";
+import { listDocuments, offlineDocument, uploadCourseZip, uploadDocument } from "@/api/documents";
+import CodePackUploadDialog from "@/components/knowledge/CodePackUploadDialog.vue";
 import DocumentSearchForm, { type DocumentSearchModel } from "@/components/knowledge/DocumentSearchForm.vue";
 import DocumentTable from "@/components/knowledge/DocumentTable.vue";
 import DocumentUploadDialog from "@/components/knowledge/DocumentUploadDialog.vue";
@@ -12,6 +13,8 @@ const allRows = ref<DocumentItem[]>([]);
 const loading = ref(false);
 const uploading = ref(false);
 const uploadVisible = ref(false);
+const codeUploading = ref(false);
+const codeUploadVisible = ref(false);
 const page = ref(1);
 const pageSize = ref(10);
 
@@ -84,6 +87,26 @@ async function handleUpload(payload: { space: SpaceId; file: File }): Promise<vo
   }
 }
 
+async function handleCodeUpload(file: File): Promise<void> {
+  codeUploading.value = true;
+  try {
+    const result = await uploadCourseZip(file);
+    const readyCount = result.documents.filter((item) => item.status === "ready").length;
+    const failedCount = result.documents.filter((item) => item.status === "failed").length;
+    const skippedCount = result.skipped.length;
+    ElMessage.success(
+      `课程代码已写入 student：成功 ${readyCount}，失败 ${failedCount}，跳过 ${skippedCount}`,
+    );
+    codeUploadVisible.value = false;
+    await loadDocuments();
+  } catch (error) {
+    const described = describeRequestError(error);
+    ElMessage.error(`${described.title}：${described.detail}`);
+  } finally {
+    codeUploading.value = false;
+  }
+}
+
 async function handleOffline(row: DocumentItem): Promise<void> {
   try {
     await ElMessageBox.confirm(`确认下线「${row.title}」？下线后不可检索。`, "下线确认", {
@@ -111,12 +134,13 @@ onMounted(() => {
 
 <template>
   <div class="page-panel">
-    <p class="page-caption">仅教学岗可上传与下线。列表状态来自服务端，失败原因原样展示。</p>
+    <p class="page-caption">仅教学岗可上传与下线。课程代码包固定写入课程空间；失败条目会显示在列表中。</p>
     <DocumentSearchForm
       :model="query"
       @search="handleSearch"
       @reset="handleReset"
       @upload="uploadVisible = true"
+      @upload-code="codeUploadVisible = true"
     />
     <DocumentTable
       :rows="pagedRows"
@@ -132,6 +156,11 @@ onMounted(() => {
       v-model:visible="uploadVisible"
       :submitting="uploading"
       @submit="handleUpload"
+    />
+    <CodePackUploadDialog
+      v-model:visible="codeUploadVisible"
+      :submitting="codeUploading"
+      @submit="handleCodeUpload"
     />
   </div>
 </template>

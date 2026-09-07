@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     chunk_size: int = 800
     chunk_overlap: int = 100
+    max_code_member_bytes: int = 512 * 1024
 
     secret_key: str = "change-me-for-local-dev"
     demo_password: str = "demo1234"
@@ -33,6 +34,12 @@ class Settings(BaseSettings):
 
     # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
     conversation_history_turns: int = 3
+
+    # 学习路径课外搜索：仅请求 arXiv / DuckDuckGo；结果再过主机白名单
+    learning_path_search_timeout_seconds: float = 15.0
+    learning_path_recent_questions: int = 20
+    learning_path_block_keywords: str = ""
+    learning_path_block_hosts: str = ""
 
 
 settings = Settings()

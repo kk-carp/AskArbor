@@ -84,6 +84,19 @@ export interface DocumentItem {
   status: DocumentStatus;
   chunk_count: number;
   error: string | null;
+  path?: string | null;
+}
+
+/** POST /code-ingest */
+export interface SkippedCodeFile {
+  path: string;
+  reason: string;
+}
+
+export interface CodeIngestResponse {
+  space_id: SpaceId;
+  documents: DocumentItem[];
+  skipped: SkippedCodeFile[];
 }
 
 /** GET /tickets */
@@ -119,6 +132,32 @@ export interface TopicOwnerUpsertPayload {
 export interface LoginPayload {
   username: string;
   password: string;
+}
+
+export type ExternalKind = "paper" | "docs" | "oss";
+
+export interface CourseRecommendation {
+  document_id: string;
+  title: string;
+  space_id: SpaceId;
+  path?: string | null;
+}
+
+export interface ExternalRecommendation {
+  title: string;
+  url: string;
+  host: string;
+  kind: ExternalKind;
+  snippet: string;
+}
+
+/** GET /learning-path：无 hit，搜索失败用 error_type */
+export interface LearningPathResponse {
+  weak_points: string[];
+  course: CourseRecommendation[];
+  external: ExternalRecommendation[];
+  error_type: "search_unavailable" | "search_timeout" | null;
+  message: string | null;
 }
 
 /** 业务错误：与 V1 的 400/401/403/413/502/503 语义对齐 */

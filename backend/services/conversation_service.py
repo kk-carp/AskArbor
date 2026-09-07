@@ -117,6 +117,23 @@ def append_turn(
     conversation.updated_at = datetime.now(timezone.utc)
 
 
+def list_recent_user_questions(*, user_id: str, limit: int | None = None) -> list[str]:
+    """当前用户近期提问正文，按时间倒序；不入知识库。"""
+    max_n = settings.learning_path_recent_questions if limit is None else limit
+    if max_n <= 0:
+        return []
+    SessionLocal = _ensure_session_factory()
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(Message.content)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(Conversation.user_id == user_id, Message.role == "user")
+            .order_by(Message.created_at.desc())
+            .limit(max_n)
+        ).all()
+        return [text.strip() for text in rows if isinstance(text, str) and text.strip()]
+
+
 def list_conversations_for_user(user_id: str) -> list[ConversationSummary]:
     SessionLocal = _ensure_session_factory()
     with SessionLocal() as session:

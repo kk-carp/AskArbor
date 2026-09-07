@@ -16,6 +16,7 @@ const emit = defineEmits<{
   search: [];
   reset: [];
   upload: [];
+  uploadCode: [];
 }>();
 
 const inner = reactive(props.model);
@@ -44,6 +45,7 @@ const inner = reactive(props.model);
       <el-button type="primary" @click="emit('search')">搜索</el-button>
       <el-button @click="emit('reset')">重置</el-button>
       <el-button type="success" @click="emit('upload')">上传文档</el-button>
+      <el-button @click="emit('uploadCode')">上传课程代码包</el-button>
     </el-form-item>
   </el-form>
 </template>

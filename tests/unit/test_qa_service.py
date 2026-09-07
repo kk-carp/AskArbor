@@ -126,6 +126,38 @@ def test_answer_question_hit_builds_sources_from_retrieval(
     assert len(result.sources) == 1
     assert result.sources[0].document_id == doc_id
     assert result.sources[0].title == "课程说明.md"
+    assert result.sources[0].path is None
+
+
+def test_answer_question_hit_copies_path_from_retrieval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc_id = uuid4()
+    monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
+    monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
+    monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
+    monkeypatch.setattr(
+        qa_service,
+        "search_chunks",
+        lambda **_kwargs: [
+            RetrievedChunk(
+                content="def bubble_sort",
+                score=0.91,
+                document_id=doc_id,
+                title="labs/sort.py",
+                space_id="student",
+                path="labs/sort.py",
+                language="python",
+            )
+        ],
+    )
+    monkeypatch.setattr(qa_service, "generate_answer", lambda _question, _chunks: "冒泡排序")
+
+    result = qa_service.answer_question(["student"], "这段排序代码什么意思")
+
+    assert result.hit is True
+    assert result.sources[0].path == "labs/sort.py"
+    assert result.sources[0].title == "labs/sort.py"
 
 
 def test_answer_question_raises_when_question_empty() -> None:

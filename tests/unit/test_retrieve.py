@@ -16,6 +16,8 @@ def test_search_chunks_builds_space_filtered_sql_and_maps_result(monkeypatch) ->
                     "document_id": str(doc_id),
                     "title": "课程说明.md",
                     "space_id": "student",
+                    "path": "labs/sort.py",
+                    "language": "python",
                 }
             ]
 
@@ -39,8 +41,11 @@ def test_search_chunks_builds_space_filtered_sql_and_maps_result(monkeypatch) ->
     assert len(rows) == 1
     assert rows[0].document_id == doc_id
     assert rows[0].space_id == "student"
+    assert rows[0].path == "labs/sort.py"
+    assert rows[0].language == "python"
     assert "WHERE chunks.space_id = ANY" in captured["sql"]
     assert "documents.status = 'ready'" in captured["sql"]
+    assert "chunks.path AS path" in captured["sql"]
     assert captured["params"]["allowed_spaces"] == "{student}"
     assert captured["params"]["top_k"] == 5
 

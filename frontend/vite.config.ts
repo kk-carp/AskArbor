@@ -13,7 +13,8 @@ function isApiGet(url: string): boolean {
     url === "/conversations" ||
     url.startsWith("/conversations/") ||
     url === "/tickets" ||
-    url === "/topic_owners"
+    url === "/topic_owners" ||
+    url === "/learning-path"
   );
 }
 
@@ -24,6 +25,7 @@ function isApiWrite(url: string): boolean {
     url === "/ask" ||
     url === "/documents" ||
     url.startsWith("/documents/") ||
+    url === "/code-ingest" ||
     url === "/tickets" ||
     url.startsWith("/tickets/") ||
     url === "/topic_owners"
@@ -41,7 +43,7 @@ export default defineConfig({
     port: 5173,
     host: "127.0.0.1",
     proxy: {
-      "^/(login|logout|me|ask|documents|conversations|tickets|topic_owners|health)(/.*)?$": {
+      "^/(login|logout|me|ask|documents|code-ingest|conversations|tickets|topic_owners|learning-path|health)(/.*)?$": {
         target: apiTarget,
         changeOrigin: true,
         bypass(req: IncomingMessage) {

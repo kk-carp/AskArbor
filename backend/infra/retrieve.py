@@ -14,6 +14,8 @@ class RetrievedChunk:
     document_id: UUID
     title: str
     space_id: str
+    path: str | None = None
+    language: str | None = None
 
 
 def search_chunks(
@@ -43,7 +45,9 @@ def search_chunks(
             1 - (chunks.embedding <=> CAST(:query_vector AS vector)) AS score,
             documents.id AS document_id,
             documents.title AS title,
-            chunks.space_id AS space_id
+            chunks.space_id AS space_id,
+            chunks.path AS path,
+            chunks.language AS language
         FROM chunks
         JOIN documents ON documents.id = chunks.document_id
         WHERE chunks.space_id = ANY(CAST(:allowed_spaces AS text[]))
@@ -70,6 +74,8 @@ def search_chunks(
                 document_id=UUID(str(row["document_id"])),
                 title=row["title"],
                 space_id=row["space_id"],
+                path=row["path"],
+                language=row["language"],
             )
             for row in rows
         ]

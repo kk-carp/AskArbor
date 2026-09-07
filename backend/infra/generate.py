@@ -8,8 +8,9 @@ from backend.infra.retrieve import RetrievedChunk
 def _build_current_user_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
     context_blocks = []
     for index, chunk in enumerate(chunks, start=1):
+        path_part = f" path={chunk.path}" if chunk.path else ""
         context_blocks.append(
-            f"[{index}] title={chunk.title} space={chunk.space_id}\n{chunk.content}"
+            f"[{index}] title={chunk.title}{path_part} space={chunk.space_id}\n{chunk.content}"
         )
     context_text = "\n\n".join(context_blocks)
     return (
@@ -20,6 +21,35 @@ def _build_current_user_prompt(question: str, chunks: list[RetrievedChunk]) -> s
         f"可用片段：\n{context_text}\n\n"
         "请给出简洁、准确的回答。回答仍必须以本轮片段为准。"
     )
+
+
+def complete_chat(
+    messages: list[dict[str, str]],
+    *,
+    temperature: float = 0.1,
+) -> str:
+    """调用 DeepSeek 完成一轮对话；失败统一为上游错误，不当成知识库未命中。"""
+    client = OpenAI(
+        base_url=settings.chat_base_url,
+        api_key=settings.chat_api_key,
+        timeout=30.0,
+    )
+    try:
+        response = client.chat.completions.create(
+            model=settings.chat_model,
+            temperature=temperature,
+            messages=messages,
+        )
+    except (APIConnectionError, APIStatusError, TimeoutError) as exc:
+        raise UpstreamServiceError("上游模型调用失败") from exc
+    except Exception as exc:
+        raise UpstreamServiceError("上游模型调用失败") from exc
+
+    message = response.choices[0].message.content if response.choices else None
+    answer = (message or "").strip()
+    if not answer:
+        raise UpstreamServiceError("上游模型返回空响应")
+    return answer
 
 
 def generate_answer(
@@ -46,26 +76,4 @@ def generate_answer(
         messages.append({"role": role, "content": text})
 
     messages.append({"role": "user", "content": _build_current_user_prompt(question, chunks)})
-
-    client = OpenAI(
-        base_url=settings.chat_base_url,
-        api_key=settings.chat_api_key,
-        timeout=30.0,
-    )
-
-    try:
-        response = client.chat.completions.create(
-            model=settings.chat_model,
-            temperature=0.1,
-            messages=messages,
-        )
-    except (APIConnectionError, APIStatusError, TimeoutError) as exc:
-        raise UpstreamServiceError("上游模型调用失败") from exc
-    except Exception as exc:
-        raise UpstreamServiceError("上游模型调用失败") from exc
-
-    message = response.choices[0].message.content if response.choices else None
-    answer = (message or "").strip()
-    if not answer:
-        raise UpstreamServiceError("上游模型返回空响应")
-    return answer
+    return complete_chat(messages)

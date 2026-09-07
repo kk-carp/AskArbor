@@ -64,3 +64,21 @@ def test_save_upload_rejects_oversized_file(
 
     with pytest.raises(ValueError, match="File exceeds max size"):
         storage.save_upload(upload, "student")
+
+
+def test_save_zip_upload_stores_under_student(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(storage.settings, "upload_dir", str(tmp_path / "uploads"))
+    upload = _upload_file("course.zip", b"PK\x03\x04fake")
+
+    stored = storage.save_zip_upload(upload)
+
+    assert stored.path.parent == tmp_path / "uploads" / "student"
+    assert stored.path.name.endswith("_course.zip")
+
+
+def test_save_upload_still_rejects_zip_for_normal_documents() -> None:
+    upload = _upload_file("course.zip", b"PK\x03\x04fake")
+    with pytest.raises(ValueError, match="Unsupported file extension"):
+        storage.save_upload(upload, "student")

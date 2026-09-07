@@ -22,6 +22,12 @@ const router = createRouter({
           meta: { title: "问答" },
         },
         {
+          path: "study-path",
+          name: "study-path",
+          component: () => import("@/views/LearningPathView.vue"),
+          meta: { title: "学习路径", requireCompanion: true },
+        },
+        {
           path: "knowledge",
           name: "knowledge",
           component: () => import("@/views/KnowledgeView.vue"),
@@ -60,6 +66,9 @@ router.beforeEach(async (to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (to.meta.requireManage && !userStore.canManageDocuments) {
+    return { name: "qa" };
+  }
+  if (to.meta.requireCompanion && !userStore.canUseCompanion) {
     return { name: "qa" };
   }
   return true;

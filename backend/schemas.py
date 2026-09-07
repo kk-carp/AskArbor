@@ -42,6 +42,7 @@ class SourceItem(BaseModel):
     document_id: UUID
     title: str
     space_id: str
+    path: str | None = None
 
 
 class OwnerInfo(BaseModel):
@@ -128,6 +129,41 @@ class DocumentResponse(BaseModel):
     status: str
     chunk_count: int
     error: str | None = None
+    path: str | None = None
+
+
+class SkippedCodeFile(BaseModel):
+    path: str
+    reason: str
+
+
+class CodeIngestResponse(BaseModel):
+    space_id: str
+    documents: list[DocumentResponse]
+    skipped: list[SkippedCodeFile]
+
+
+class CourseRecommendation(BaseModel):
+    document_id: UUID
+    title: str
+    space_id: str
+    path: str | None = None
+
+
+class ExternalRecommendation(BaseModel):
+    title: str
+    url: str
+    host: str
+    kind: str
+    snippet: str = ""
+
+
+class LearningPathResponse(BaseModel):
+    weak_points: list[str]
+    course: list[CourseRecommendation]
+    external: list[ExternalRecommendation]
+    error_type: str | None = None
+    message: str | None = None
 
 
 class HealthResponse(BaseModel):
