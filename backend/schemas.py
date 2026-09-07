@@ -164,6 +164,7 @@ class LearningPathResponse(BaseModel):
     external: list[ExternalRecommendation]
     error_type: str | None = None
     message: str | None = None
+    from_cache: bool = False
 
 
 class HealthResponse(BaseModel):

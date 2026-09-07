@@ -33,6 +33,47 @@ class LearningPathResult:
     external: list[ExternalRecommendation]
     error_type: str | None = None
     message: str | None = None
+    from_cache: bool = False
+
+
+# 进程内按用户缓存；无 Redis。进页读缓存，显式 refresh 才重建。
+_path_cache: dict[str, LearningPathResult] = {}
+
+
+def clear_learning_path_cache() -> None:
+    """测试或热重载时清空缓存。"""
+    _path_cache.clear()
+
+
+def get_learning_path(
+    *,
+    user_id: str,
+    allowed_spaces: list[str],
+    refresh: bool = False,
+) -> LearningPathResult:
+    """默认返回该用户缓存；refresh=True 或无缓存时重新生成并写入。"""
+    require_companion_spaces(allowed_spaces)
+    if not refresh:
+        cached = _path_cache.get(user_id)
+        if cached is not None:
+            return LearningPathResult(
+                weak_points=cached.weak_points,
+                course=list(cached.course),
+                external=list(cached.external),
+                error_type=cached.error_type,
+                message=cached.message,
+                from_cache=True,
+            )
+    result = build_learning_path(user_id=user_id, allowed_spaces=allowed_spaces)
+    _path_cache[user_id] = result
+    return LearningPathResult(
+        weak_points=result.weak_points,
+        course=list(result.course),
+        external=list(result.external),
+        error_type=result.error_type,
+        message=result.message,
+        from_cache=False,
+    )
 
 
 def strip_urls(text: str) -> str:

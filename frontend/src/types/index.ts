@@ -151,13 +151,14 @@ export interface ExternalRecommendation {
   snippet: string;
 }
 
-/** GET /learning-path：无 hit，搜索失败用 error_type */
+/** GET /learning-path：无 hit，搜索失败用 error_type；默认读缓存 */
 export interface LearningPathResponse {
   weak_points: string[];
   course: CourseRecommendation[];
   external: ExternalRecommendation[];
   error_type: "search_unavailable" | "search_timeout" | null;
   message: string | null;
+  from_cache: boolean;
 }
 
 /** 业务错误：与 V1 的 400/401/403/413/502/503 语义对齐 */

@@ -29,10 +29,10 @@ function kindLabel(kind: ExternalKind): string {
   return "文档";
 }
 
-async function loadPath(): Promise<void> {
+async function loadPath(refresh = false): Promise<void> {
   loading.value = true;
   try {
-    data.value = await fetchLearningPath();
+    data.value = await fetchLearningPath(refresh);
   } catch (error) {
     const described = describeRequestError(error);
     ElMessage.error(`${described.title}：${described.detail}`);
@@ -43,7 +43,7 @@ async function loadPath(): Promise<void> {
 }
 
 onMounted(() => {
-  void loadPath();
+  void loadPath(false);
 });
 </script>
 
@@ -53,8 +53,9 @@ onMounted(() => {
       <div>
         <h1>学习路径</h1>
         <p class="hint">根据近期提问推荐课程资料，并补充开源、免费的课外阅读与论文。</p>
+        <p v-if="data?.from_cache" class="cache-hint">当前为缓存结果；点击「重新搜索」可按最新提问更新。</p>
       </div>
-      <el-button :loading="loading" @click="loadPath">刷新</el-button>
+      <el-button type="primary" :loading="loading" @click="loadPath(true)">重新搜索</el-button>
     </div>
 
     <el-alert
@@ -143,6 +144,12 @@ h2 {
   margin: 6px 0 0;
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.cache-hint {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .alert {

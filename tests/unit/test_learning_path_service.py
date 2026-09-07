@@ -9,6 +9,11 @@ from backend.services import learning_path_service as lp
 from backend.services.learning_path_service import parse_topic_list
 
 
+@pytest.fixture(autouse=True)
+def _clear_path_cache() -> None:
+    lp.clear_learning_path_cache()
+
+
 def test_parse_topic_list_drops_urls() -> None:
     raw = '["https://udemy.com/vip课", "动态规划状态转移", "https://evil.example/x"]'
     assert parse_topic_list(raw) == ["动态规划状态转移"]
@@ -135,3 +140,44 @@ def test_model_urls_are_not_used_as_external_sources(monkeypatch: pytest.MonkeyP
     assert [item.url for item in result.external] == ["https://arxiv.org/abs/1706.03762"]
     assert all("udemy" not in item.url for item in result.external)
     assert result.error_type is None
+
+
+def test_get_learning_path_uses_cache_until_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    builds = {"count": 0}
+    monkeypatch.setattr(lp, "list_recent_user_questions", lambda *_a, **_k: ["动态规划"])
+    monkeypatch.setattr(lp, "complete_chat", lambda _messages: '["动态规划"]')
+    monkeypatch.setattr(lp, "is_loaded", lambda: True)
+    monkeypatch.setattr(lp, "encode_query", lambda _q: [0.1])
+    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+
+    def _search(_queries):
+        builds["count"] += 1
+        return [
+            ExternalResource(
+                title=f"Paper-{builds['count']}",
+                url=f"https://arxiv.org/abs/1706.0376{builds['count']}",
+                host="arxiv.org",
+                kind="paper",
+                snippet="",
+            )
+        ]
+
+    monkeypatch.setattr(lp, "search_open_resources", _search)
+
+    first = lp.get_learning_path(user_id="u1", allowed_spaces=["student"], refresh=False)
+    second = lp.get_learning_path(user_id="u1", allowed_spaces=["student"], refresh=False)
+    refreshed = lp.get_learning_path(user_id="u1", allowed_spaces=["student"], refresh=True)
+
+    assert builds["count"] == 2
+    assert first.from_cache is False
+    assert second.from_cache is True
+    assert second.external[0].url == first.external[0].url
+    assert refreshed.from_cache is False
+    assert refreshed.external[0].url != first.external[0].url
+
+
+def test_get_learning_path_cache_still_checks_companion() -> None:
+    seeded = lp.LearningPathResult(weak_points=["x"], course=[], external=[])
+    lp._path_cache["u2"] = seeded
+    with pytest.raises(CompanionForbiddenError):
+        lp.get_learning_path(user_id="u2", allowed_spaces=["company"], refresh=False)

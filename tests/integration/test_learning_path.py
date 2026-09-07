@@ -6,7 +6,12 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.schemas import CourseRecommendation, ExternalRecommendation
 from backend.services.auth_service import AuthContext, AuthUser
-from backend.services.learning_path_service import LearningPathResult
+from backend.services.learning_path_service import LearningPathResult, clear_learning_path_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_path_cache() -> None:
+    clear_learning_path_cache()
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
@@ -45,7 +50,7 @@ def test_learning_path_ok_for_student_without_hit_field(monkeypatch: pytest.Monk
         lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
     )
     monkeypatch.setattr(
-        "backend.routes.learning_path.build_learning_path",
+        "backend.routes.learning_path.get_learning_path",
         lambda **_k: LearningPathResult(
             weak_points=["动态规划"],
             course=[
@@ -67,6 +72,7 @@ def test_learning_path_ok_for_student_without_hit_field(monkeypatch: pytest.Monk
             ],
             error_type=None,
             message=None,
+            from_cache=False,
         ),
     )
     with _client(monkeypatch) as client:
@@ -74,6 +80,7 @@ def test_learning_path_ok_for_student_without_hit_field(monkeypatch: pytest.Monk
     assert response.status_code == 200
     body = response.json()
     assert "hit" not in body
+    assert body["from_cache"] is False
     assert body["course"][0]["space_id"] == "student"
     assert body["course"][0]["document_id"] == str(doc_id)
     assert body["external"][0]["url"] == "https://arxiv.org/abs/1706.03762"
@@ -89,14 +96,42 @@ def test_learning_path_teaching_calls_service_with_full_membership(
         lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
     )
 
-    def _build(*, user_id: str, allowed_spaces: list[str]) -> LearningPathResult:
+    def _get(*, user_id: str, allowed_spaces: list[str], refresh: bool = False) -> LearningPathResult:
         seen["user_id"] = user_id
         seen["allowed_spaces"] = allowed_spaces
-        return LearningPathResult(weak_points=[], course=[], external=[], message="提问记录不足，暂无法识别薄弱点")
+        seen["refresh"] = refresh
+        return LearningPathResult(
+            weak_points=[],
+            course=[],
+            external=[],
+            message="提问记录不足，暂无法识别薄弱点",
+            from_cache=False,
+        )
 
-    monkeypatch.setattr("backend.routes.learning_path.build_learning_path", _build)
+    monkeypatch.setattr("backend.routes.learning_path.get_learning_path", _get)
     with _client(monkeypatch) as client:
         response = client.get("/learning-path")
     assert response.status_code == 200
     assert seen["allowed_spaces"] == ["student", "company"]
+    assert seen["refresh"] is False
     assert "hit" not in response.json()
+
+
+def test_learning_path_refresh_query_is_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = AuthUser("u1", "student_demo", "student", False)
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        "backend.routes.learning_path.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+
+    def _get(*, user_id: str, allowed_spaces: list[str], refresh: bool = False) -> LearningPathResult:
+        seen["refresh"] = refresh
+        return LearningPathResult(weak_points=[], course=[], external=[], from_cache=not refresh)
+
+    monkeypatch.setattr("backend.routes.learning_path.get_learning_path", _get)
+    with _client(monkeypatch) as client:
+        response = client.get("/learning-path?refresh=true")
+    assert response.status_code == 200
+    assert seen["refresh"] is True
+    assert response.json()["from_cache"] is False
