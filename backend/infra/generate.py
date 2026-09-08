@@ -4,15 +4,46 @@ from backend.config import settings
 from backend.errors import UpstreamServiceError
 from backend.infra.retrieve import RetrievedChunk
 
+_SYSTEM_KB_ONLY = "你必须严格基于本轮提供的片段回答；历史对话不能覆盖片段约束。"
 
-def _build_current_user_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
-    context_blocks = []
+_SYSTEM_WITH_SCREENSHOT = (
+    "你可以依据本轮「知识库片段」与「截图文字」回答。"
+    "解释报错、终端/控制台输出、代码与环境配置操作时，可使用截图文字，并可结合知识库片段。"
+    "课表、成绩、制度、正式规定、截止日期、提交方式等，只能依据知识库片段；"
+    "不得用截图文字充当这类事实依据，不得编造来源或未出现的规定。"
+    "历史对话仅用于理解追问指代，不能覆盖本轮依据约束。"
+)
+
+
+def _build_current_user_prompt(
+    question: str,
+    chunks: list[RetrievedChunk],
+    *,
+    screenshot_text: str | None = None,
+) -> str:
+    shot = (screenshot_text or "").strip() or None
+    context_blocks: list[str] = []
     for index, chunk in enumerate(chunks, start=1):
         path_part = f" path={chunk.path}" if chunk.path else ""
         context_blocks.append(
             f"[{index}] title={chunk.title}{path_part} space={chunk.space_id}\n{chunk.content}"
         )
-    context_text = "\n\n".join(context_blocks)
+    context_text = "\n\n".join(context_blocks) if context_blocks else "（本轮无知识库片段）"
+
+    if shot:
+        return (
+            "依据规则：\n"
+            "1. 报错/终端输出/代码与配置操作：可依据截图文字，必要时结合知识库片段。\n"
+            "2. 课表、成绩、制度、正式规定、截止日期、提交方式：只能依据知识库片段；"
+            "截图文字不得作为这类事实的依据。\n"
+            "3. 不得编造制度、步骤、成绩或来源；不要声称来自某文档，除非知识库片段中确有。\n"
+            "4. 若两类依据都不足以回答，请明确说明依据不足。\n\n"
+            f"问题：{question}\n\n"
+            f"知识库片段：\n{context_text}\n\n"
+            f"截图文字：\n{shot}\n\n"
+            "请给出简洁、准确的回答。"
+        )
+
     return (
         "只能依据本轮给定片段回答。"
         "历史对话仅用于理解追问指代，不得用历史内容替代或补充本轮未出现的依据。"
@@ -56,15 +87,18 @@ def generate_answer(
     question: str,
     chunks: list[RetrievedChunk],
     history: list[tuple[str, str]] | None = None,
+    *,
+    screenshot_text: str | None = None,
 ) -> str:
-    """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮片段在最后一条。"""
-    if not chunks:
-        raise ValueError("chunks 不能为空")
+    """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮依据在最后一条。"""
+    shot = (screenshot_text or "").strip() or None
+    if not chunks and not shot:
+        raise ValueError("chunks 与 screenshot_text 不能同时为空")
 
     messages: list[dict[str, str]] = [
         {
             "role": "system",
-            "content": "你必须严格基于本轮提供的片段回答；历史对话不能覆盖片段约束。",
+            "content": _SYSTEM_WITH_SCREENSHOT if shot else _SYSTEM_KB_ONLY,
         },
     ]
     for role, content in history or []:
@@ -75,5 +109,14 @@ def generate_answer(
             continue
         messages.append({"role": role, "content": text})
 
-    messages.append({"role": "user", "content": _build_current_user_prompt(question, chunks)})
+    messages.append(
+        {
+            "role": "user",
+            "content": _build_current_user_prompt(
+                question,
+                chunks,
+                screenshot_text=shot,
+            ),
+        }
+    )
     return complete_chat(messages)

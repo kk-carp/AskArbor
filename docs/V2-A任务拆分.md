@@ -42,7 +42,7 @@ V2-A4 学习路径（V1 会话 + student 检索 + 课外搜索）
 | V2-A2 | 不做        | 代码调试助手与隔离沙箱已从学伴范围删除；无 `POST /debug` |
 | V2-A3 | 暂不实现    | 作业智能批改本阶段不建表、不提供接口 |
 | V2-A4 | 已完成      | `GET /learning-path`：课内 student 召回 + 课外搜索（白名单）     |
-| V2-A5 | 未开始      | `/ask` 仅文本                                                |
+| V2-A5 | 已完成      | `POST /ocr`：全员可用；截图文字作本轮依据；未命中库可 `screenshot_only` 不建单 |
 | V2-A6 | 本专项不做    | Gradio / SSE / 独立前端不做；学伴页接入现有 Vue                       |
 
 
@@ -71,7 +71,7 @@ V2-A4 学习路径（V1 会话 + student 检索 + 课外搜索）
 | --- | --- | --- |
 | zip 内忽略规则 | 忽略 `.git`、常见二进制、超大单文件；具体名单 A1 开工时写入实现与测试 | A1 |
 | 演示用课程代码包路径结构 | 虚构课程即可，例如 `docs/samples/v2a/` | A1 |
-| OCR 引擎 | PaddleOCR；失败与未命中分语义 | A5 |
+| OCR 引擎 | Qwen-VL + 可选 PaddleOCR；全员可用；失败与未命中分语义 | A5 |
 | 学习路径测验 | 第一期只用 V1 会话；不建 `knowledge_points` / `learner_signals` | A4 已拍板 |
 | 网页搜索供应商 | 默认 `httpx` + Tavily（`TAVILY_API_KEY`）+ arXiv；结果过白名单 | A4 |
 | 对标课程品牌/域名 | `LEARNING_PATH_BLOCK_KEYWORDS` / `LEARNING_PATH_BLOCK_HOSTS`；未提供则只拦通用收费课/训练营 | A4 |
@@ -235,9 +235,9 @@ pytest tests/unit/test_learning_path_service.py tests/unit/test_open_resource_se
 **差距动作：**
 
 1. `POST /ocr` 或 `/ask` 支持图片：登录 + 学伴 `student` 成员；员工 403。
-2. OCR 成功：文本作为问题进入既有 `/ask`（命中/未命中规则不变，含学员建单）。
-3. OCR 失败：返回 `error_type=ocr_failed`；**不建工单**；响应的 `hit` 不得为 false（除非 OCR 成功后检索确实未命中）。
-4. 不把 OCR 失败说成知识库未命中；不调用 DeepSeek（失败路径）。
+2. OCR 成功：文本进入既有问答；**截图文字作为本轮可读依据**（可与检索片段并列），用于解释报错/操作；课表、成绩、制度仍只信知识库。知识库未命中但有截图文字时：`error_type=screenshot_only`，`hit=false`，**不建工单**，仍调用 DeepSeek。
+3. OCR 失败：返回 `error_type=ocr_failed`；**不建工单**；响应的 `hit` 不得为 false。
+4. 不把 OCR 失败说成知识库未命中；OCR 失败路径不调用 DeepSeek。
 5. 单元测试 mock 引擎，不强制 CI 下载 OCR 模型。
 6. （不阻塞 API）Vue 问答页支持贴图；失败用工具失败文案，不用拒答文案。
 

@@ -192,7 +192,7 @@ def test_answer_question_passes_history_to_generate(
         ],
     )
 
-    def _fake_generate(question, chunks, history=None):
+    def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
         captured["question"] = question
         captured["history"] = history
         return "本轮答案"

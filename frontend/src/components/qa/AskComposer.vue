@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { Top } from "@element-plus/icons-vue";
-import type { FormInstance, FormRules } from "element-plus";
+import { Picture, Top } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
 
 interface AskForm {
   question: string;
@@ -12,90 +12,125 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  submit: [question: string];
+  submit: [payload: { question: string; image: File | null }];
 }>();
 
-const formRef = ref<FormInstance>();
 const form = reactive<AskForm>({ question: "" });
-const rules: FormRules<AskForm> = {
-  question: [
-    {
-      validator: (_rule, value: string, callback) => {
-        if (!value || !value.trim()) {
-          callback(new Error("问题不能为空"));
-          return;
-        }
-        callback();
-      },
-      trigger: "blur",
-    },
-  ],
-};
+const imageFile = ref<File | null>(null);
+const imagePreview = ref<string | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 
-const canSubmit = computed(() => Boolean(form.question.trim()) && !props.loading);
+const canSubmit = computed(
+  () => (Boolean(form.question.trim()) || imageFile.value !== null) && !props.loading,
+);
 
-async function handleSubmit(): Promise<void> {
-  const valid = await formRef.value?.validate().catch(() => false);
-  if (!valid || props.loading) {
+function pickImage(): void {
+  fileInput.value?.click();
+}
+
+function onFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] || null;
+  input.value = "";
+  if (!file) {
     return;
   }
-  emit("submit", form.question.trim());
+  if (!file.type.startsWith("image/")) {
+    ElMessage.error("请选择图片文件");
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.error("图片过大（上限 10MB）");
+    return;
+  }
+  imageFile.value = file;
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+  }
+  imagePreview.value = URL.createObjectURL(file);
+}
+
+function clearImage(): void {
+  imageFile.value = null;
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+    imagePreview.value = null;
+  }
+}
+
+function handleSubmit(): void {
+  if (!canSubmit.value) {
+    return;
+  }
+  const question = form.question.trim();
+  const image = imageFile.value;
+  form.question = "";
+  imageFile.value = null;
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+    imagePreview.value = null;
+  }
+  emit("submit", { question, image });
 }
 
 function resetQuestion(): void {
   form.question = "";
-  formRef.value?.clearValidate();
+  clearImage();
 }
 
 defineExpose({ resetQuestion });
 </script>
 
 <template>
-  <el-form ref="formRef" :model="form" :rules="rules" class="composer" @submit.prevent="handleSubmit">
-    <el-form-item prop="question" class="composer-field">
-      <div class="composer-box">
-        <el-input
-          v-model="form.question"
-          type="textarea"
-          :autosize="{ minRows: 1, maxRows: 6 }"
-          maxlength="2000"
-          resize="none"
-          placeholder="输入问题，Enter 发送，Shift + Enter 换行"
-          :disabled="loading"
-          @keydown.enter.exact.prevent="handleSubmit"
-        />
-        <div class="composer-bar">
-          <span class="hint"></span>
-          <span class="count">{{ form.question.length }} / 2000</span>
-          <el-button
-            type="primary"
-            circle
-            :loading="loading"
-            :disabled="!canSubmit"
-            aria-label="提问"
-            @click="handleSubmit"
-          >
-            <el-icon v-if="!loading"><Top /></el-icon>
-          </el-button>
-        </div>
+  <form class="composer" @submit.prevent="handleSubmit">
+    <div class="composer-box">
+      <div v-if="imagePreview" class="image-preview">
+        <img :src="imagePreview" alt="待识别截图" />
+        <el-button text type="danger" size="small" :disabled="loading" @click="clearImage">移除</el-button>
       </div>
-    </el-form-item>
-  </el-form>
+      <el-input
+        v-model="form.question"
+        type="textarea"
+        :autosize="{ minRows: 1, maxRows: 6 }"
+        maxlength="2000"
+        resize="none"
+        placeholder="输入问题，或上传代码/公式截图；Enter 发送，Shift + Enter 换行"
+        :disabled="loading"
+        @keydown.enter.exact.prevent="handleSubmit"
+      />
+      <div class="composer-bar">
+        <input
+          ref="fileInput"
+          class="hidden-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          @change="onFileChange"
+        />
+        <el-button text :disabled="loading" @click="pickImage">
+          <el-icon><Picture /></el-icon>
+          截图
+        </el-button>
+        <span class="hint"></span>
+        <span class="count">{{ form.question.length }} / 2000</span>
+        <button
+          type="button"
+          class="send-btn"
+          :disabled="!canSubmit"
+          aria-label="提问"
+          @click="handleSubmit"
+        >
+          <span v-if="loading" class="send-spinner" aria-hidden="true" />
+          <el-icon v-else><Top /></el-icon>
+        </button>
+      </div>
+    </div>
+  </form>
 </template>
 
 <style scoped>
 .composer {
   width: min(760px, 100%);
   margin: 0 auto;
-}
-
-.composer-field {
-  margin-bottom: 0;
-}
-
-.composer-field :deep(.el-form-item__content) {
-  width: 100%;
-  display: block;
 }
 
 .composer-box {
@@ -116,6 +151,21 @@ defineExpose({ resetQuestion });
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.image-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.image-preview img {
+  max-height: 96px;
+  max-width: 220px;
+  border-radius: 8px;
+  border: 1px solid var(--color-line);
+  object-fit: contain;
+}
+
 .composer-box :deep(.el-textarea__inner) {
   box-shadow: none;
   border: none;
@@ -130,6 +180,10 @@ defineExpose({ resetQuestion });
   gap: 8px;
 }
 
+.hidden-input {
+  display: none;
+}
+
 .hint {
   flex: 1;
   font-size: 12px;
@@ -141,8 +195,42 @@ defineExpose({ resetQuestion });
   color: var(--color-muted);
 }
 
-.composer-bar :deep(.el-button.is-circle) {
+.send-btn {
   width: 36px;
   height: 36px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.send-btn .el-icon {
+  font-size: 16px;
+}
+
+.send-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: send-spin 0.7s linear infinite;
+}
+
+@keyframes send-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

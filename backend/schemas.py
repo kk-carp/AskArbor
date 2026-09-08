@@ -58,11 +58,14 @@ class OwnerInfo(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
-    hit: bool
-    sources: list[SourceItem]
+    hit: bool | None = None
+    sources: list[SourceItem] = Field(default_factory=list)
     conversation_id: UUID | None = None
     ticket_id: UUID | None = None
     owner: OwnerInfo | None = None
+    error_type: str | None = None
+    extracted_text: str | None = None
+    extract_method: str | None = None
 
 
 class ConversationItem(BaseModel):

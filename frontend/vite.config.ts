@@ -23,6 +23,7 @@ function isApiWrite(url: string): boolean {
     url === "/login" ||
     url === "/logout" ||
     url === "/ask" ||
+    url === "/ocr" ||
     url === "/documents" ||
     url.startsWith("/documents/") ||
     url === "/code-ingest" ||
@@ -43,7 +44,7 @@ export default defineConfig({
     port: 5173,
     host: "127.0.0.1",
     proxy: {
-      "^/(login|logout|me|ask|documents|code-ingest|conversations|tickets|topic_owners|learning-path|health)(/.*)?$": {
+      "^/(login|logout|me|ask|ocr|documents|code-ingest|conversations|tickets|topic_owners|learning-path|health)(/.*)?$": {
         target: apiTarget,
         changeOrigin: true,
         bypass(req: IncomingMessage) {

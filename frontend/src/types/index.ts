@@ -40,14 +40,17 @@ export interface OwnerInfo {
   contact: string | null;
 }
 
-/** POST /ask 响应 */
+/** POST /ask 或 /ocr 响应；ocr_failed 时 hit 为 null */
 export interface AskResponse {
   answer: string;
-  hit: boolean;
+  hit: boolean | null;
   sources: SourceItem[];
   conversation_id: string | null;
   ticket_id: string | null;
   owner: OwnerInfo | null;
+  error_type?: "ocr_failed" | "screenshot_only" | null;
+  extracted_text?: string | null;
+  extract_method?: "vision" | "ocr" | null;
 }
 
 /** GET /conversations 列表项 */
@@ -72,10 +75,11 @@ export interface MessageItem {
  * 后端消息接口不落库 hit / ticket_id / owner，由前端按消息 id 缓存。
  */
 export interface MessageAskMeta {
-  hit: boolean;
+  hit: boolean | null;
   ticket_id: string | null;
   owner: OwnerInfo | null;
   sources: SourceItem[];
+  error_type?: "ocr_failed" | "screenshot_only" | null;
 }
 
 /** GET /documents */

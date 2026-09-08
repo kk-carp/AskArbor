@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from "vue";
-import { askQuestion, listConversations, listMessages } from "@/api/qa";
+import { askQuestion, askWithImage, listConversations, listMessages } from "@/api/qa";
 import AskComposer from "@/components/qa/AskComposer.vue";
 import ConversationList from "@/components/qa/ConversationList.vue";
 import MessagePane from "@/components/qa/MessagePane.vue";
 import { useAskMetaStore } from "@/stores/askMeta";
+import { useMessageImageStore } from "@/stores/messageImages";
 import type { ConversationItem, MessageAskMeta, MessageItem } from "@/types";
 import { describeRequestError } from "@/utils/errors";
 
 const askMetaStore = useAskMetaStore();
+const messageImageStore = useMessageImageStore();
 const conversations = ref<ConversationItem[]>([]);
 const messages = ref<MessageItem[]>([]);
 const currentConversationId = ref<string | null>(null);
@@ -16,8 +18,8 @@ const listLoading = ref(false);
 const messageLoading = ref(false);
 const asking = ref(false);
 const pendingQuestion = ref("");
+const pendingImageUrl = ref<string | null>(null);
 const requestError = ref<{ title: string; detail: string } | null>(null);
-const composerRef = ref<{ resetQuestion: () => void } | null>(null);
 const messageWrap = ref<HTMLElement | null>(null);
 
 function metaOf(messageId: string): MessageAskMeta | null {
@@ -25,6 +27,13 @@ function metaOf(messageId: string): MessageAskMeta | null {
     return null;
   }
   return askMetaStore.getMeta(currentConversationId.value, messageId);
+}
+
+function imageOf(messageId: string): string | null {
+  if (!currentConversationId.value) {
+    return null;
+  }
+  return messageImageStore.getUrl(currentConversationId.value, messageId);
 }
 
 async function refreshConversations(): Promise<void> {
@@ -69,13 +78,39 @@ function startNewConversation(): void {
   requestError.value = null;
 }
 
-async function handleAsk(question: string): Promise<void> {
+async function handleAsk(payload: string | { question: string; image: File | null }): Promise<void> {
+  const data =
+    typeof payload === "string" ? { question: payload, image: null as File | null } : payload;
+  const question = (data.question ?? "").trim();
+  const image = data.image ?? null;
+  if (!question && !image) {
+    requestError.value = { title: "请求无效", detail: "请输入问题或上传截图" };
+    return;
+  }
+
   asking.value = true;
   requestError.value = null;
-  pendingQuestion.value = question;
+  pendingQuestion.value = image ? question || "截图提问" : question;
+  if (pendingImageUrl.value) {
+    URL.revokeObjectURL(pendingImageUrl.value);
+    pendingImageUrl.value = null;
+  }
+  const localImageUrl = image ? URL.createObjectURL(image) : null;
+  pendingImageUrl.value = localImageUrl;
   await scrollToBottom();
   try {
-    const result = await askQuestion(question, currentConversationId.value);
+    const result = image
+      ? await askWithImage(image, question || null, currentConversationId.value)
+      : await askQuestion(question, currentConversationId.value);
+
+    if (result.error_type === "ocr_failed") {
+      requestError.value = {
+        title: "图片识别失败",
+        detail: result.answer || "请换更清晰的截图或改用文字提问。这不是知识库未命中。",
+      };
+      return;
+    }
+
     const conversationId = result.conversation_id;
     if (!conversationId) {
       requestError.value = { title: "问答异常", detail: "响应未返回 conversation_id" };
@@ -85,20 +120,29 @@ async function handleAsk(question: string): Promise<void> {
     await refreshConversations();
     await loadMessages(conversationId, true);
     const lastAssistant = [...messages.value].reverse().find((item) => item.role === "assistant");
+    const lastUser = [...messages.value].reverse().find((item) => item.role === "user");
     if (lastAssistant) {
       askMetaStore.save(conversationId, lastAssistant.id, {
         hit: result.hit,
         ticket_id: result.ticket_id,
         owner: result.owner,
         sources: result.sources,
+        error_type: result.error_type ?? null,
       });
     }
-    composerRef.value?.resetQuestion();
+    if (lastUser && localImageUrl) {
+      messageImageStore.save(conversationId, lastUser.id, localImageUrl);
+      pendingImageUrl.value = null;
+    }
   } catch (error) {
     requestError.value = describeRequestError(error);
   } finally {
     asking.value = false;
     pendingQuestion.value = "";
+    if (pendingImageUrl.value) {
+      URL.revokeObjectURL(pendingImageUrl.value);
+      pendingImageUrl.value = null;
+    }
   }
 }
 
@@ -137,10 +181,17 @@ onMounted(async () => {
         @close="requestError = null"
       />
       <div ref="messageWrap" class="messages" v-loading="messageLoading">
-        <MessagePane :messages="messages" :meta-of="metaOf" :asking="asking" :pending-question="pendingQuestion" />
+        <MessagePane
+          :messages="messages"
+          :meta-of="metaOf"
+          :image-of="imageOf"
+          :asking="asking"
+          :pending-question="pendingQuestion"
+          :pending-image-url="pendingImageUrl"
+        />
       </div>
       <div class="composer-dock">
-        <AskComposer ref="composerRef" :loading="asking" @submit="handleAsk" />
+        <AskComposer :loading="asking" @submit="handleAsk" />
       </div>
     </section>
   </div>

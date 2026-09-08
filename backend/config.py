@@ -42,5 +42,12 @@ class Settings(BaseSettings):
     learning_path_block_hosts: str = ""
     tavily_api_key: str = ""
 
+    # 图片识文：Qwen-VL（DashScope OpenAI 兼容）优先，PaddleOCR 兜底
+    vision_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    vision_api_key: str = ""
+    vision_model: str = "qwen-vl-plus"
+    vision_timeout_seconds: float = 60.0
+    ocr_enabled: bool = True
+
 
 settings = Settings()

@@ -42,7 +42,11 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
   }
 
   const timeoutMs =
-    path === "/ask" || path === "/documents" || path === "/code-ingest" || path === "/learning-path"
+    path === "/ask" ||
+    path === "/ocr" ||
+    path === "/documents" ||
+    path === "/code-ingest" ||
+    path === "/learning-path"
       ? 120_000
       : 30_000;
   const response = await fetch(path, {

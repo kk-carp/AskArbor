@@ -11,6 +11,32 @@ const router = useRouter();
 
 const showOwner = computed(() => props.meta !== null && props.meta.owner !== null);
 const showTicket = computed(() => Boolean(props.meta?.ticket_id));
+const isOcrFailed = computed(() => props.meta?.error_type === "ocr_failed");
+const isScreenshotOnly = computed(() => props.meta?.error_type === "screenshot_only");
+const hitLabel = computed(() => {
+  if (isOcrFailed.value) {
+    return "图片识别失败";
+  }
+  if (isScreenshotOnly.value) {
+    return "已依据截图文字";
+  }
+  if (props.meta?.hit === true) {
+    return "已命中知识库";
+  }
+  if (props.meta?.hit === false) {
+    return "未命中知识库";
+  }
+  return "";
+});
+const pillClass = computed(() => {
+  if (isOcrFailed.value) {
+    return "tool";
+  }
+  if (isScreenshotOnly.value) {
+    return "shot";
+  }
+  return props.meta?.hit ? "hit" : "miss";
+});
 
 function goTicket(): void {
   if (!props.meta?.ticket_id) {
@@ -21,10 +47,14 @@ function goTicket(): void {
 </script>
 
 <template>
-  <div v-if="meta" class="meta-banner">
-    <span class="hit-pill" :class="meta.hit ? 'hit' : 'miss'">
-      {{ meta.hit ? "已命中知识库" : "未命中知识库" }}
+  <div v-if="meta && hitLabel" class="meta-banner">
+    <span class="hit-pill" :class="pillClass">
+      {{ hitLabel }}
     </span>
+    <div v-if="isOcrFailed" class="note">这不是知识库未命中，不会自动创建学员工单。</div>
+    <div v-if="isScreenshotOnly" class="note">
+      知识库未命中；已根据截图文字解释操作/报错。课表、成绩、制度仍只信知识库。
+    </div>
     <div v-if="showTicket" class="note">
       <span>已自动创建学员工单 {{ meta.ticket_id }}</span>
       <el-button type="primary" link @click="goTicket">去工单页查看</el-button>
@@ -49,25 +79,34 @@ function goTicket(): void {
 .hit-pill {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
   padding: 2px 10px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
 }
 
 .hit-pill.hit {
   color: #166534;
-  background: #f0fdf4;
+  background: #dcfce7;
 }
 
 .hit-pill.miss {
   color: #9a3412;
-  background: #fff7ed;
+  background: #ffedd5;
+}
+
+.hit-pill.tool {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.hit-pill.shot {
+  color: #075985;
+  background: #e0f2fe;
 }
 
 .note {
   font-size: 13px;
   color: var(--color-muted);
-  line-height: 1.6;
 }
 </style>

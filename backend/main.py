@@ -16,6 +16,7 @@ from backend.routes import (
     documents,
     health,
     learning_path,
+    ocr,
     tickets,
     topic_owners,
 )
@@ -52,6 +53,7 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(code_ingest.router)
 app.include_router(ask.router)
+app.include_router(ocr.router)
 app.include_router(learning_path.router)
 app.include_router(conversations.router)
 app.include_router(tickets.router)

@@ -7,7 +7,7 @@ from backend.config import settings
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
 from backend.infra.generate import generate_answer
-from backend.infra.retrieve import search_chunks
+from backend.infra.retrieve import RetrievedChunk, search_chunks
 from backend.schemas import OwnerInfo, SourceItem
 from backend.services.conversation_service import (
     ConversationNotFoundError,
@@ -19,6 +19,8 @@ from backend.services.ticket_service import create_ticket_for_student
 from backend.services.topic_owner_service import lookup_owner_for_employee
 
 MISS_ANSWER = "知识库中没有足够依据回答这个问题。"
+SCREENSHOT_MARKER = "【截图文字】"
+SCREENSHOT_ONLY = "screenshot_only"
 
 _audit_logger = logging.getLogger("backend.audit")
 
@@ -31,6 +33,19 @@ class AskResult:
     conversation_id: UUID | None = None
     ticket_id: UUID | None = None
     owner: OwnerInfo | None = None
+    error_type: str | None = None
+
+
+def retrieval_query_for_question(question: str, screenshot_text: str | None) -> str:
+    """有截图时优先用用户短问做检索，避免整段 OCR 噪声命中无关切片。"""
+    shot = (screenshot_text or "").strip()
+    if not shot:
+        return question
+    if SCREENSHOT_MARKER in question:
+        head = question.split(SCREENSHOT_MARKER, 1)[0].strip()
+        if head:
+            return head
+    return shot[:800]
 
 
 def _build_sources(retrieved) -> list[SourceItem]:
@@ -101,6 +116,28 @@ def _maybe_create_student_ticket(
     return UUID(ticket.id)
 
 
+def _retrieve(
+    allowed_spaces: list[str],
+    question: str,
+    screenshot_text: str | None,
+) -> list[RetrievedChunk]:
+    if not allowed_spaces:
+        return []
+    query_text = retrieval_query_for_question(question, screenshot_text)
+    query_vector = encode_query(query_text)
+    retrieved = search_chunks(
+        query_vector=query_vector,
+        allowed_spaces=allowed_spaces,
+        top_k=settings.retrieve_top_k,
+    )
+    if not retrieved:
+        return []
+    top_score = max(item.score for item in retrieved)
+    if top_score < settings.retrieve_min_score:
+        return []
+    return retrieved
+
+
 def answer_question(
     allowed_spaces: list[str],
     question: str,
@@ -109,11 +146,16 @@ def answer_question(
     user_role: str | None = None,
     advisor_id: str | None = None,
     conversation_id: str | UUID | None = None,
+    screenshot_text: str | None = None,
 ) -> AskResult:
-    """在允许空间内回答问题；学员未命中建工单；员工未命中查负责人；502/503 不建单、不落库。"""
+    """在允许空间内回答问题；学员未命中建工单；员工未命中查负责人；502/503 不建单、不落库。
+
+    screenshot_text：识图问答时传入，作为本轮可读依据；课表/成绩/制度仍只能信知识库片段。
+    """
     normalized_question = question.strip()
     if not normalized_question:
         raise ValueError("问题不能为空")
+    shot = (screenshot_text or "").strip() or None
     if not is_loaded():
         raise ServiceUnavailableError("向量模型未加载")
 
@@ -121,7 +163,7 @@ def answer_question(
     use_conversation = user_id is not None
 
     if not use_conversation:
-        return _answer_without_conversation(allowed_spaces, normalized_question)
+        return _answer_without_conversation(allowed_spaces, normalized_question, screenshot_text=shot)
 
     db.init_engine()
     if db.SessionLocal is None:
@@ -138,6 +180,7 @@ def answer_question(
             raise
 
         history = load_recent_history(session, conversation_id=conversation.id)
+        history_tuples = [(item.role, item.content) for item in history]
 
         def _miss_result() -> AskResult:
             append_turn(
@@ -177,28 +220,17 @@ def answer_question(
                 owner=owner,
             )
 
-        if not allowed_spaces:
+        retrieved = _retrieve(allowed_spaces, normalized_question, shot)
+
+        if not retrieved and not shot:
             return _miss_result()
 
-        query_vector = encode_query(normalized_question)
-        retrieved = search_chunks(
-            query_vector=query_vector,
-            allowed_spaces=allowed_spaces,
-            top_k=settings.retrieve_top_k,
-        )
-        if not retrieved:
-            return _miss_result()
-
-        top_score = max(item.score for item in retrieved)
-        if top_score < settings.retrieve_min_score:
-            return _miss_result()
-
-        history_tuples = [(item.role, item.content) for item in history]
         try:
             answer = generate_answer(
                 normalized_question,
                 retrieved,
                 history=history_tuples,
+                screenshot_text=shot,
             )
         except UpstreamServiceError:
             session.rollback()
@@ -230,42 +262,63 @@ def answer_question(
             assistant_content=answer,
         )
         session.commit()
-        sources = _build_sources(retrieved)
+
+        if retrieved:
+            sources = _build_sources(retrieved)
+            _write_audit(
+                user_id=user_id,
+                user_role=user_role,
+                allowed_spaces=allowed_spaces,
+                hit=True,
+                document_ids=[str(item.document_id) for item in sources],
+                error_type="hit",
+            )
+            return AskResult(
+                answer=answer,
+                hit=True,
+                sources=sources,
+                conversation_id=UUID(conversation.id),
+                ticket_id=None,
+                owner=None,
+            )
+
         _write_audit(
             user_id=user_id,
             user_role=user_role,
             allowed_spaces=allowed_spaces,
-            hit=True,
-            document_ids=[str(item.document_id) for item in sources],
-            error_type="hit",
+            hit=False,
+            document_ids=[],
+            error_type=SCREENSHOT_ONLY,
         )
         return AskResult(
             answer=answer,
-            hit=True,
-            sources=sources,
+            hit=False,
+            sources=[],
             conversation_id=UUID(conversation.id),
             ticket_id=None,
             owner=None,
+            error_type=SCREENSHOT_ONLY,
         )
 
 
-def _answer_without_conversation(allowed_spaces: list[str], normalized_question: str) -> AskResult:
+def _answer_without_conversation(
+    allowed_spaces: list[str],
+    normalized_question: str,
+    *,
+    screenshot_text: str | None = None,
+) -> AskResult:
     """无 user_id 时保持单轮行为（供旧测试路径）；不建工单、不查负责人。"""
-    if not allowed_spaces:
+    shot = (screenshot_text or "").strip() or None
+    retrieved = _retrieve(allowed_spaces, normalized_question, shot)
+    if not retrieved and not shot:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 
-    query_vector = encode_query(normalized_question)
-    retrieved = search_chunks(
-        query_vector=query_vector,
-        allowed_spaces=allowed_spaces,
-        top_k=settings.retrieve_top_k,
+    answer = generate_answer(normalized_question, retrieved, screenshot_text=shot)
+    if retrieved:
+        return AskResult(answer=answer, hit=True, sources=_build_sources(retrieved))
+    return AskResult(
+        answer=answer,
+        hit=False,
+        sources=[],
+        error_type=SCREENSHOT_ONLY,
     )
-    if not retrieved:
-        return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
-
-    top_score = max(item.score for item in retrieved)
-    if top_score < settings.retrieve_min_score:
-        return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
-
-    answer = generate_answer(normalized_question, retrieved)
-    return AskResult(answer=answer, hit=True, sources=_build_sources(retrieved))
