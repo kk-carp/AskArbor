@@ -6,7 +6,7 @@ from backend.domain.companion import CompanionForbiddenError
 from backend.infra.open_resource import ExternalResource, SearchTimeoutError
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import learning_path_service as lp
-from backend.services.learning_path_service import parse_topic_list
+from backend.services.learning_path_service import is_transactional_question, parse_topic_list
 
 
 @pytest.fixture(autouse=True)
@@ -17,6 +17,58 @@ def _clear_path_cache() -> None:
 def test_parse_topic_list_drops_urls() -> None:
     raw = '["https://udemy.com/vip课", "动态规划状态转移", "https://evil.example/x"]'
     assert parse_topic_list(raw) == ["动态规划状态转移"]
+
+
+def test_parse_topic_list_drops_transactional_topics() -> None:
+    raw = '["课程作业截止时间", "动态规划", "作业提交方式"]'
+    assert parse_topic_list(raw) == ["动态规划"]
+
+
+def test_is_transactional_question_detects_admin_asks() -> None:
+    assert is_transactional_question("课程作业提交截止时间") is True
+    assert is_transactional_question("作业怎么交") is True
+    assert is_transactional_question("动态规划状态转移怎么写") is False
+
+
+def test_summarize_ignores_transactional_only_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"value": False}
+
+    def _chat(_messages):
+        called["value"] = True
+        return '["作业截止时间"]'
+
+    monkeypatch.setattr(lp, "complete_chat", _chat)
+    monkeypatch.setattr(lp, "list_recent_user_questions", lambda *_a, **_k: ["课程作业提交截止时间", "作业提交方式"])
+    monkeypatch.setattr(lp, "is_loaded", lambda: True)
+    monkeypatch.setattr(lp, "search_open_resources", lambda *_a, **_k: [])
+    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+
+    result = lp.build_learning_path(user_id="u1", allowed_spaces=["student"])
+
+    assert called["value"] is False
+    assert result.weak_points == []
+    assert result.course == []
+    assert result.external == []
+    assert "事务" in (result.message or "")
+
+
+def test_summarize_keeps_knowledge_and_drops_transactional_mix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        lp,
+        "list_recent_user_questions",
+        lambda *_a, **_k: ["课程作业截止时间", "冒泡排序怎么写", "作业怎么交"],
+    )
+    monkeypatch.setattr(lp, "complete_chat", lambda _messages: '["冒泡排序", "作业截止时间"]')
+    monkeypatch.setattr(lp, "is_loaded", lambda: True)
+    monkeypatch.setattr(lp, "encode_query", lambda _q: [0.1])
+    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(lp, "search_open_resources", lambda *_a, **_k: [])
+
+    result = lp.build_learning_path(user_id="u1", allowed_spaces=["student"])
+
+    assert result.weak_points == ["冒泡排序"]
 
 
 def test_empty_history_does_not_search_or_retrieve(monkeypatch: pytest.MonkeyPatch) -> None:
