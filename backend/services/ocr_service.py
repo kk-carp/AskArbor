@@ -105,6 +105,7 @@ def ask_with_image(
     user_role: str,
     advisor_id: str | None,
     conversation_id: str | UUID | None,
+    position_key: str | None = None,
 ) -> OcrAskResult:
     """全员可用：识图后按该用户 allowed_spaces 走既有问答。"""
     try:
@@ -139,6 +140,7 @@ def ask_with_image(
         advisor_id=advisor_id,
         conversation_id=conversation_id,
         screenshot_text=extracted,
+        position_key=position_key,
     )
     _logger.info(
         "ask-ocr user_id=%s role=%s method=%s hit=%s",

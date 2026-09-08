@@ -24,6 +24,7 @@ def _to_me_response(user: AuthUser) -> MeResponse:
         allowed_spaces=get_allowed_spaces_for_user(user.id),
         advisor_id=user.advisor_id,
         can_manage_documents=can_manage_documents(user),
+        position_key=user.position_key,
     )
 
 

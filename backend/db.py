@@ -30,6 +30,14 @@ def _ensure_chunk_source_columns(current_engine: Engine) -> None:
         connection.execute(text("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS language VARCHAR(32)"))
 
 
+def _ensure_user_position_key(current_engine: Engine) -> None:
+    """已有库补齐 users.position_key。"""
+    if current_engine.dialect.name != "postgresql":
+        return
+    with current_engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS position_key VARCHAR(64)"))
+
+
 def init_db() -> None:
     """启用 pgvector、创建表结构，并初始化 student/company 空间。"""
     current_engine = init_engine()
@@ -41,6 +49,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=current_engine)
     _ensure_chunk_source_columns(current_engine)
+    _ensure_user_position_key(current_engine)
 
     if SessionLocal is None:
         raise RuntimeError("Session factory is not initialized")

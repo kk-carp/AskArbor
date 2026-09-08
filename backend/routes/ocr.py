@@ -52,6 +52,7 @@ async def ocr_ask(
             user_role=context.user.role,
             advisor_id=context.user.advisor_id,
             conversation_id=_parse_optional_uuid(conversation_id),
+            position_key=context.user.position_key,
         )
     except HTTPException:
         raise

@@ -51,6 +51,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     is_teaching: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    position_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     advisor_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,

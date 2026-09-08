@@ -18,12 +18,28 @@ class DemoAccount:
     username: str
     role: str
     is_teaching: bool
+    position_key: str | None = None
 
 
 DEMO_ACCOUNTS = (
-    DemoAccount(username=DEMO_STUDENT_USERNAME, role="student", is_teaching=False),
-    DemoAccount(username=DEMO_EMPLOYEE_USERNAME, role="employee", is_teaching=False),
-    DemoAccount(username=DEMO_TEACHING_USERNAME, role="employee", is_teaching=True),
+    DemoAccount(
+        username=DEMO_STUDENT_USERNAME,
+        role="student",
+        is_teaching=False,
+        position_key=None,
+    ),
+    DemoAccount(
+        username=DEMO_EMPLOYEE_USERNAME,
+        role="employee",
+        is_teaching=False,
+        position_key="algo_engineer",
+    ),
+    DemoAccount(
+        username=DEMO_TEACHING_USERNAME,
+        role="employee",
+        is_teaching=True,
+        position_key="algo_engineer",
+    ),
 )
 
 
@@ -46,6 +62,7 @@ def seed_demo_users(session: Session) -> None:
                 password_hash=password_hash,
                 role=account.role,
                 is_teaching=account.is_teaching,
+                position_key=account.position_key,
             )
             session.add(user)
             session.flush()
@@ -53,6 +70,7 @@ def seed_demo_users(session: Session) -> None:
             user.password_hash = password_hash
             user.role = account.role
             user.is_teaching = account.is_teaching
+            user.position_key = account.position_key
 
         # 成员关系只由服务端写入；问答不得信任客户端 role
         desired_spaces = set(expected_spaces(role=account.role, is_teaching=account.is_teaching))

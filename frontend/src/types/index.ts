@@ -19,6 +19,7 @@ export interface MeResponse {
   allowed_spaces: SpaceId[];
   advisor_id: string | null;
   can_manage_documents: boolean;
+  position_key?: string | null;
 }
 
 /** 问答来源：只渲染接口返回字段，不解析模型正文 */

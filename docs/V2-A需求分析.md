@@ -24,7 +24,7 @@
 
 V2-A 目标是在 **不重写 RAG 主链路** 的前提下，给学员侧接上「命中之后 / 未命中之后」的学伴能力：能问课程代码、能推荐课内资料与开源/免费课外阅读、能把截图送进既有问答。作业智能批改**暂不实现**。
 
-智能助手（入职推荐、公司 Skill）留在 V2-B，见 `docs/V2-B需求分析.md`。
+智能助手（入职推荐；公司 Skill 另开）留在 V2-B，见 `docs/V2-B需求分析.md`。
 
 ### 1.2 相对 V1 的增量
 
@@ -76,7 +76,7 @@ V2-A 目标是在 **不重写 RAG 主链路** 的前提下，给学员侧接上�
 
 ### 2.2 V2-A 明确不做
 
-- V2-B 全部：入职推荐、公司 Skill（文章生成、arXiv 等）。见 `docs/V2-B需求分析.md`。
+- V2-B：入职推荐（问答内）。公司 Skill 另开。见 `docs/V2-B需求分析.md`。
 - 把学伴做成第二套 FastAPI / 第二套 pgvector。
 - 在学伴插件任务内重做一套前端框架（产品 Vue 由 `docs/产品化前端需求分析.md` 单独立项，与 A1–A5 并行）。
 - 对话自动入库、无人确认写知识库。
@@ -108,7 +108,7 @@ V2-A 目标是在 **不重写 RAG 主链路** 的前提下，给学员侧接上�
 1. **OCR 引擎：** 已拍板为 **Qwen-VL（DashScope OpenAI 兼容）优先抽文本 + 可选 PaddleOCR 兜底**；全员可用；成功后按用户 `allowed_spaces` 走 `/ask`。
 2. **zip 内忽略规则：** 建议忽略 `.git`、常见二进制、超大文件；具体名单实现 A1 时定。
 3. **演示用课程代码包路径结构**（虚构课程即可）。
-4. **通用网页搜索供应商：** 第一期默认用现有 `httpx` 调 **Tavily Search**（`https://api.tavily.com/search`，需 `TAVILY_API_KEY`），请求带展示白名单 `include_domains` 与收费课 `exclude_domains`；结果再过 `filter_search_hits`。不引入 Tavily SDK。无 key 时网页源记为 `search_unavailable`，论文源 arXiv 仍可用。论文检索走 arXiv（`export.arxiv.org`，超时 15 秒，与 V2-B5 主机一致）。
+4. **通用网页搜索供应商：** 第一期默认用现有 `httpx` 调 **Tavily Search**（`https://api.tavily.com/search`，需 `TAVILY_API_KEY`），请求带展示白名单 `include_domains` 与收费课 `exclude_domains`；结果再过 `filter_search_hits`。不引入 Tavily SDK。无 key 时网页源记为 `search_unavailable`，论文源 arXiv 仍可用。论文检索走 arXiv（`export.arxiv.org`，超时 15 秒）。
 5. **对标本公司产品的具体品牌/域名：** 填进 `LEARNING_PATH_BLOCK_`*；未提供则第一期只拦第 2.3 条通用收费课/训练营主机与关键词。
 
 ---

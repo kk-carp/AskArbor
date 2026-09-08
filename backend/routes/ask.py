@@ -24,6 +24,7 @@ async def ask(payload: AskRequest, request: Request) -> AskResponse:
             user_role=context.user.role,
             advisor_id=context.user.advisor_id,
             conversation_id=payload.conversation_id,
+            position_key=context.user.position_key,
         )
     except HTTPException:
         raise

@@ -19,6 +19,7 @@ class AuthUser:
     role: str
     is_teaching: bool
     advisor_id: str | None = None
+    position_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,7 @@ def _to_auth_user(user: User) -> AuthUser:
         role=user.role,
         is_teaching=user.is_teaching,
         advisor_id=user.advisor_id,
+        position_key=user.position_key,
     )
 
 

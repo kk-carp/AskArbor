@@ -8,6 +8,7 @@ from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
 from backend.infra.generate import generate_answer
 from backend.infra.retrieve import RetrievedChunk, search_chunks
+from backend.domain.position import boost_retrieval_query
 from backend.schemas import OwnerInfo, SourceItem
 from backend.services.conversation_service import (
     ConversationNotFoundError,
@@ -120,10 +121,13 @@ def _retrieve(
     allowed_spaces: list[str],
     question: str,
     screenshot_text: str | None,
+    *,
+    position_key: str | None = None,
 ) -> list[RetrievedChunk]:
     if not allowed_spaces:
         return []
     query_text = retrieval_query_for_question(question, screenshot_text)
+    query_text = boost_retrieval_query(query_text, position_key)
     query_vector = encode_query(query_text)
     retrieved = search_chunks(
         query_vector=query_vector,
@@ -147,15 +151,18 @@ def answer_question(
     advisor_id: str | None = None,
     conversation_id: str | UUID | None = None,
     screenshot_text: str | None = None,
+    position_key: str | None = None,
 ) -> AskResult:
     """在允许空间内回答问题；学员未命中建工单；员工未命中查负责人；502/503 不建单、不落库。
 
     screenshot_text：识图问答时传入，作为本轮可读依据；课表/成绩/制度仍只能信知识库片段。
+    position_key：入职类问句时用于检索 query 拼接岗位中文名。
     """
     normalized_question = question.strip()
     if not normalized_question:
         raise ValueError("问题不能为空")
     shot = (screenshot_text or "").strip() or None
+    pos_key = (position_key or "").strip() or None
     if not is_loaded():
         raise ServiceUnavailableError("向量模型未加载")
 
@@ -163,7 +170,12 @@ def answer_question(
     use_conversation = user_id is not None
 
     if not use_conversation:
-        return _answer_without_conversation(allowed_spaces, normalized_question, screenshot_text=shot)
+        return _answer_without_conversation(
+            allowed_spaces,
+            normalized_question,
+            screenshot_text=shot,
+            position_key=pos_key,
+        )
 
     db.init_engine()
     if db.SessionLocal is None:
@@ -220,7 +232,7 @@ def answer_question(
                 owner=owner,
             )
 
-        retrieved = _retrieve(allowed_spaces, normalized_question, shot)
+        retrieved = _retrieve(allowed_spaces, normalized_question, shot, position_key=pos_key)
 
         if not retrieved and not shot:
             return _miss_result()
@@ -306,10 +318,16 @@ def _answer_without_conversation(
     normalized_question: str,
     *,
     screenshot_text: str | None = None,
+    position_key: str | None = None,
 ) -> AskResult:
     """无 user_id 时保持单轮行为（供旧测试路径）；不建工单、不查负责人。"""
     shot = (screenshot_text or "").strip() or None
-    retrieved = _retrieve(allowed_spaces, normalized_question, shot)
+    retrieved = _retrieve(
+        allowed_spaces,
+        normalized_question,
+        shot,
+        position_key=position_key,
+    )
     if not retrieved and not shot:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 

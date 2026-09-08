@@ -36,6 +36,7 @@ class MeResponse(BaseModel):
     allowed_spaces: list[str]
     advisor_id: str | None = None
     can_manage_documents: bool = False
+    position_key: str | None = None
 
 
 class SourceItem(BaseModel):

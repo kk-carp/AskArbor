@@ -175,3 +175,25 @@ def test_me_exposes_advisor_and_manage_flag(monkeypatch: pytest.MonkeyPatch) -> 
     body = response.json()
     assert body["advisor_id"] == "advisor-1"
     assert body["can_manage_documents"] is False
+    assert body.get("position_key") is None
+
+
+def test_me_exposes_position_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = AuthUser(
+        id="user-emp",
+        username="employee_demo",
+        role="employee",
+        is_teaching=False,
+        position_key="algo_engineer",
+    )
+    monkeypatch.setattr(
+        "backend.routes.auth.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["company"]),
+    )
+    monkeypatch.setattr("backend.routes.auth.get_allowed_spaces_for_user", lambda _user_id: ["company"])
+
+    with _client(monkeypatch) as client:
+        response = client.get("/me")
+
+    assert response.status_code == 200
+    assert response.json()["position_key"] == "algo_engineer"

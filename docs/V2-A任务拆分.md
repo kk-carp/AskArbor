@@ -310,7 +310,7 @@ A6 本专项不做。命中判断与鉴权仍只在 FastAPI。
 
 ## 8. 明确不做（任一 V2-A 任务均禁止）
 
-- V2-B 全部：入职推荐、公司 Skill。见 `docs/V2-B需求分析.md`。
+- V2-B：入职推荐（问答内）。公司 Skill 另开。见 `docs/V2-B需求分析.md`。
 - 第二套 FastAPI / 第二套 pgvector；在学伴任务内重做前端框架。
 - Gradio、SSE、完整在线 IDE、考试系统、入职带练。
 - tree-sitter 符号名、Git clone 课程仓（A1 第一期）。
