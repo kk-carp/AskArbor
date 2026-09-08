@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -170,6 +171,50 @@ class LearningPathResponse(BaseModel):
     error_type: str | None = None
     message: str | None = None
     from_cache: bool = False
+
+
+class AdvancedResourceToolSpec(BaseModel):
+    name: str
+    description: str
+    params: list[str] = []
+
+
+class AdvancedResourcesToolsResponse(BaseModel):
+    tools: list[AdvancedResourceToolSpec]
+
+
+class AdvancedResourcesRunRequest(BaseModel):
+    tool: str
+    args: dict[str, Any] | None = None
+
+
+class AdvancedResourcesRunResponse(BaseModel):
+    tool: str
+    ok: bool
+    data: dict[str, Any] = {}
+    error_type: str | None = None
+    message: str | None = None
+
+
+class AdvancedResourcesPlanRequest(BaseModel):
+    weak_points: list[str] | None = None
+
+
+class AdvancedResourceStep(BaseModel):
+    tool: str
+    ok: bool
+    data: dict[str, Any] = {}
+    error_type: str | None = None
+    message: str | None = None
+
+
+class AdvancedResourcesPlanResponse(BaseModel):
+    weak_points: list[str]
+    course: list[CourseRecommendation]
+    external: list[ExternalRecommendation]
+    steps: list[AdvancedResourceStep] = []
+    error_type: str | None = None
+    message: str | None = None
 
 
 class HealthResponse(BaseModel):

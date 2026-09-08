@@ -168,6 +168,33 @@ export interface LearningPathResponse {
   from_cache: boolean;
 }
 
+export interface AdvancedResourceStep {
+  tool: string;
+  ok: boolean;
+  data: Record<string, unknown>;
+  error_type: string | null;
+  message: string | null;
+}
+
+export interface AdvancedResourcesPlanResponse {
+  weak_points: string[];
+  course: CourseRecommendation[];
+  external: ExternalRecommendation[];
+  steps: AdvancedResourceStep[];
+  error_type: "search_unavailable" | "search_timeout" | null;
+  message: string | null;
+}
+
+export interface AdvancedResourceToolSpec {
+  name: string;
+  description: string;
+  params: string[];
+}
+
+export interface AdvancedResourcesToolsResponse {
+  tools: AdvancedResourceToolSpec[];
+}
+
 /** 业务错误：与 V1 的 400/401/403/413/502/503 语义对齐 */
 export class ApiError extends Error {
   status: number;

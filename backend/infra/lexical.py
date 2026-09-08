@@ -14,8 +14,9 @@ def to_search_text(text: str) -> str:
         return ""
     try:
         import jieba
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("jieba 未安装，无法构建词法索引") from exc
+    except ImportError:
+        # 无 jieba 时降级为空白分词，避免混合检索直接 500
+        return " ".join(_TOKEN_RE.findall(raw))
 
     parts = [token.strip() for token in jieba.cut_for_search(raw) if token and token.strip()]
     if not parts:

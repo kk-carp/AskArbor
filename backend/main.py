@@ -12,6 +12,7 @@ from backend.infra.embed import load_model
 from backend.infra.open_resource import init_open_resource_search_tools
 from backend.infra.rerank import load_reranker
 from backend.routes import (
+    advanced_resources,
     ask,
     auth,
     code_ingest,
@@ -89,6 +90,7 @@ app.include_router(code_ingest.router)
 app.include_router(ask.router)
 app.include_router(ocr.router)
 app.include_router(learning_path.router)
+app.include_router(advanced_resources.router)
 app.include_router(conversations.router)
 app.include_router(tickets.router)
 app.include_router(topic_owners.router)
