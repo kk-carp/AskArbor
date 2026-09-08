@@ -19,7 +19,15 @@ class Settings(BaseSettings):
     embed_batch_size: int = 8
 
     retrieve_top_k: int = 5
-    retrieve_min_score: float = 0.3
+    retrieve_min_score: float = 0.5
+    # 混合检索 + 重排（默认双开；关 rerank 时仍用 retrieve_min_score 门控 dense 分）
+    retrieve_use_hybrid: bool = True
+    retrieve_use_rerank: bool = True
+    retrieve_candidate_k: int = 20
+    retrieve_rrf_k: int = 60
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    rerank_candidates: int = 20
+    rerank_min_score: float = 0.0
 
     upload_dir: str = "data/uploads"
     max_upload_bytes: int = 10 * 1024 * 1024

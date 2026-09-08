@@ -42,7 +42,7 @@ def test_answer_question_with_conversation_persists_miss(
     )
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_kwargs: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
 
     def _append(_session, *, conversation, user_content, assistant_content):
         appended.append((user_content, assistant_content))
@@ -103,7 +103,7 @@ def test_answer_question_rolls_back_on_upstream_failure(
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="chunk",
@@ -180,7 +180,7 @@ def test_answer_question_passes_history_to_generate(
     doc_id = uuid4()
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="c1",

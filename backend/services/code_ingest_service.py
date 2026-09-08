@@ -7,6 +7,7 @@ from backend import db
 from backend.config import settings
 from backend.errors import ServiceUnavailableError
 from backend.infra.chunker import split_text
+from backend.infra.chunk_tsv import update_chunk_content_tsv
 from backend.infra.code_unpack import ZipMember, ZipSkipped, unpack_course_zip
 from backend.infra.embed import encode_documents, is_loaded
 from backend.infra.parsers import parse_document
@@ -74,17 +75,18 @@ def _ingest_member(member: ZipMember) -> DocumentResult:
             if document is None:
                 raise RuntimeError("文档记录不存在")
             for index, (content, embedding) in enumerate(zip(chunks, embeddings)):
-                session.add(
-                    Chunk(
-                        document_id=document_id,
-                        space_id=COURSE_SPACE_ID,
-                        chunk_index=index,
-                        content=content,
-                        embedding=embedding,
-                        path=member.path,
-                        language=member.language,
-                    )
+                chunk = Chunk(
+                    document_id=document_id,
+                    space_id=COURSE_SPACE_ID,
+                    chunk_index=index,
+                    content=content,
+                    embedding=embedding,
+                    path=member.path,
+                    language=member.language,
                 )
+                session.add(chunk)
+                session.flush()
+                update_chunk_content_tsv(session, chunk.id, content)
             document.status = DocumentStatus.ready.value
             document.error = None
             session.commit()

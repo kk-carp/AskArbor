@@ -1,10 +1,13 @@
 from collections.abc import Generator
+import logging
 
 from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.config import settings
 from backend.models import Base, Space
+
+_log = logging.getLogger("uvicorn.error")
 
 engine: Engine | None = None
 SessionLocal: sessionmaker[Session] | None = None
@@ -38,6 +41,48 @@ def _ensure_user_position_key(current_engine: Engine) -> None:
         connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS position_key VARCHAR(64)"))
 
 
+def _ensure_chunk_content_tsv(current_engine: Engine) -> None:
+    """词法检索列 + GIN；对 content_tsv 为空的行按 jieba 分词回填。"""
+    if current_engine.dialect.name != "postgresql":
+        return
+    with current_engine.begin() as connection:
+        connection.execute(text("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS content_tsv tsvector"))
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_chunks_content_tsv ON chunks USING GIN (content_tsv)")
+        )
+
+    from backend.infra.lexical import to_search_text
+
+    if SessionLocal is None:
+        return
+    with SessionLocal() as session:
+        rows = session.execute(
+            text("SELECT id, content FROM chunks WHERE content_tsv IS NULL")
+        ).mappings().all()
+        total = len(rows)
+        if total:
+            _log.info("backfill content_tsv for %s chunks", total)
+        for index, row in enumerate(rows, start=1):
+            search_text = to_search_text(row["content"] or "")
+            if not search_text:
+                continue
+            session.execute(
+                text(
+                    """
+                    UPDATE chunks
+                    SET content_tsv = to_tsvector('simple', :search_text)
+                    WHERE id = :id
+                    """
+                ),
+                {"search_text": search_text, "id": row["id"]},
+            )
+            if index == 1 or index == total or index % 50 == 0:
+                _log.info("content_tsv backfill %s/%s", index, total)
+        session.commit()
+        if total:
+            _log.info("content_tsv backfill finished")
+
+
 def init_db() -> None:
     """启用 pgvector、创建表结构，并初始化 student/company 空间。"""
     current_engine = init_engine()
@@ -50,6 +95,8 @@ def init_db() -> None:
     Base.metadata.create_all(bind=current_engine)
     _ensure_chunk_source_columns(current_engine)
     _ensure_user_position_key(current_engine)
+    _ensure_chunk_content_tsv(current_engine)
+
 
     if SessionLocal is None:
         raise RuntimeError("Session factory is not initialized")

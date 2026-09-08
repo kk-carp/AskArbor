@@ -18,7 +18,7 @@ from backend.infra.open_resource import (
     SearchUnavailableError,
     search_open_resources,
 )
-from backend.infra.retrieve import search_chunks
+from backend.infra.retrieve import run_retrieval
 from backend.schemas import CourseRecommendation, ExternalRecommendation
 from backend.services.conversation_service import list_recent_user_questions
 
@@ -175,16 +175,14 @@ def _retrieve_course(weak_points: list[str]) -> list[CourseRecommendation]:
     if not query:
         return []
     query_vector = encode_query(query)
-    retrieved = search_chunks(
+    retrieved = run_retrieval(
+        query_text=query,
         query_vector=query_vector,
         allowed_spaces=["student"],
-        top_k=settings.retrieve_top_k,
     )
     course: list[CourseRecommendation] = []
     seen: set[str] = set()
     for item in retrieved:
-        if item.score < settings.retrieve_min_score:
-            continue
         if item.space_id != "student":
             continue
         key = str(item.document_id)

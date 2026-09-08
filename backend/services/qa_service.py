@@ -7,7 +7,7 @@ from backend.config import settings
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
 from backend.infra.generate import generate_answer
-from backend.infra.retrieve import RetrievedChunk, search_chunks
+from backend.infra.retrieve import RetrievedChunk, run_retrieval
 from backend.domain.position import boost_retrieval_query
 from backend.schemas import OwnerInfo, SourceItem
 from backend.services.conversation_service import (
@@ -129,17 +129,11 @@ def _retrieve(
     query_text = retrieval_query_for_question(question, screenshot_text)
     query_text = boost_retrieval_query(query_text, position_key)
     query_vector = encode_query(query_text)
-    retrieved = search_chunks(
+    return run_retrieval(
+        query_text=query_text,
         query_vector=query_vector,
         allowed_spaces=allowed_spaces,
-        top_k=settings.retrieve_top_k,
     )
-    if not retrieved:
-        return []
-    top_score = max(item.score for item in retrieved)
-    if top_score < settings.retrieve_min_score:
-        return []
-    return retrieved
 
 
 def answer_question(

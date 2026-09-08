@@ -41,7 +41,7 @@ def test_summarize_ignores_transactional_only_history(monkeypatch: pytest.Monkey
     monkeypatch.setattr(lp, "list_recent_user_questions", lambda *_a, **_k: ["课程作业提交截止时间", "作业提交方式"])
     monkeypatch.setattr(lp, "is_loaded", lambda: True)
     monkeypatch.setattr(lp, "search_open_resources", lambda *_a, **_k: [])
-    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(lp, "run_retrieval", lambda **_k: [])
 
     result = lp.build_learning_path(user_id="u1", allowed_spaces=["student"])
 
@@ -63,7 +63,7 @@ def test_summarize_keeps_knowledge_and_drops_transactional_mix(
     monkeypatch.setattr(lp, "complete_chat", lambda _messages: '["冒泡排序", "作业截止时间"]')
     monkeypatch.setattr(lp, "is_loaded", lambda: True)
     monkeypatch.setattr(lp, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(lp, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(lp, "search_open_resources", lambda *_a, **_k: [])
 
     result = lp.build_learning_path(user_id="u1", allowed_spaces=["student"])
@@ -135,7 +135,7 @@ def test_retrieve_uses_student_only_and_keeps_course_on_search_timeout(
             ),
         ]
 
-    monkeypatch.setattr(lp, "search_chunks", _search_chunks)
+    monkeypatch.setattr(lp, "run_retrieval", _search_chunks)
 
     def _timeout(_queries):
         raise SearchTimeoutError("timeout")
@@ -169,7 +169,7 @@ def test_model_urls_are_not_used_as_external_sources(monkeypatch: pytest.MonkeyP
     )
     monkeypatch.setattr(lp, "is_loaded", lambda: True)
     monkeypatch.setattr(lp, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(lp, "run_retrieval", lambda **_k: [])
 
     def _search(queries):
         queries_seen.append(list(queries))
@@ -200,7 +200,7 @@ def test_get_learning_path_uses_cache_until_refresh(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(lp, "complete_chat", lambda _messages: '["动态规划"]')
     monkeypatch.setattr(lp, "is_loaded", lambda: True)
     monkeypatch.setattr(lp, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(lp, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(lp, "run_retrieval", lambda **_k: [])
 
     def _search(_queries):
         builds["count"] += 1

@@ -40,7 +40,7 @@ def test_employee_miss_returns_configured_owner(monkeypatch) -> None:
     monkeypatch.setattr(qa_service, "get_or_create_conversation", lambda *_a, **_k: Conversation())
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
     monkeypatch.setattr(qa_service, "lookup_owner_for_employee", lambda *_a, **_k: owner)
     monkeypatch.setattr(
@@ -74,7 +74,7 @@ def test_employee_miss_returns_unconfigured_owner(monkeypatch) -> None:
     monkeypatch.setattr(qa_service, "get_or_create_conversation", lambda *_a, **_k: Conversation())
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
     monkeypatch.setattr(
         qa_service,
@@ -109,7 +109,7 @@ def test_student_miss_does_not_return_owner(monkeypatch) -> None:
     monkeypatch.setattr(qa_service, "get_or_create_conversation", lambda *_a, **_k: Conversation())
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
     monkeypatch.setattr(qa_service, "create_ticket_for_student", lambda *_a, **_k: _Ticket())
     monkeypatch.setattr(qa_service, "lookup_owner_for_employee", lambda *_a, **_k: None)

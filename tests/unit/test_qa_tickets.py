@@ -43,7 +43,7 @@ def test_student_miss_creates_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
 
     def _create(*_a, **_k):
@@ -97,7 +97,7 @@ def test_employee_miss_does_not_create_ticket(monkeypatch: pytest.MonkeyPatch) -
     )
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
     monkeypatch.setattr(
         qa_service,
@@ -154,7 +154,7 @@ def test_upstream_failure_does_not_create_ticket(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_k: [
             RetrievedChunk(
                 content="c",
@@ -216,7 +216,7 @@ def test_student_miss_without_advisor_raises(monkeypatch: pytest.MonkeyPatch) ->
     )
     monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
     monkeypatch.setattr(
         qa_service,

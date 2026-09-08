@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 from threading import Lock
 from typing import Any
 
 from backend.config import settings
 from backend.errors import ServiceUnavailableError
 
+_log = logging.getLogger("uvicorn.error")
 _model_lock = Lock()
 _model: Any | None = None
 
@@ -23,7 +25,9 @@ def load_model() -> None:
         try:
             from sentence_transformers import SentenceTransformer
 
+            _log.info("loading SentenceTransformer(%s) — first run may download weights", settings.embed_model)
             _model = SentenceTransformer(settings.embed_model)
+            _log.info("embed model ready")
         except Exception as exc:  # pragma: no cover - 依赖真实模型环境
             raise ServiceUnavailableError("向量模型加载失败") from exc
 

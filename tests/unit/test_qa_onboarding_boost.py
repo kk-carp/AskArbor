@@ -20,7 +20,7 @@ def test_answer_question_onboarding_boosts_encode_query(
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="入职指南",
@@ -54,7 +54,7 @@ def test_answer_question_non_onboarding_does_not_boost(
         "encode_query",
         lambda text: seen.__setitem__("query", text) or [0.1],
     )
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_k: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(
         qa_service,
         "generate_answer",

@@ -12,7 +12,7 @@ def test_answer_question_returns_miss_without_calling_generate(
 ) -> None:
     monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_kwargs: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
 
     called = {"value": False}
 
@@ -56,25 +56,13 @@ def test_answer_question_returns_miss_when_allowed_spaces_empty(
     assert generated["value"] is False
 
 
-def test_answer_question_returns_miss_when_score_below_threshold(
+def test_answer_question_returns_miss_when_retrieval_gated_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """阈值门控在 run_retrieval 内完成；空结果视为未命中。"""
     monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
-    monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.8)
-    monkeypatch.setattr(
-        qa_service,
-        "search_chunks",
-        lambda **_kwargs: [
-            RetrievedChunk(
-                content="chunk",
-                score=0.7,
-                document_id=uuid4(),
-                title="doc",
-                space_id="student",
-            )
-        ],
-    )
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
 
     called = {"value": False}
     monkeypatch.setattr(
@@ -99,7 +87,7 @@ def test_answer_question_hit_builds_sources_from_retrieval(
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="c1",
@@ -139,7 +127,7 @@ def test_answer_question_hit_copies_path_from_retrieval(
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="def bubble_sort",
@@ -167,7 +155,7 @@ def test_answer_question_screenshot_only_calls_generate_without_ticket_semantics
 ) -> None:
     monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
-    monkeypatch.setattr(qa_service, "search_chunks", lambda **_kwargs: [])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
     seen: dict[str, object] = {}
 
     def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
@@ -208,7 +196,7 @@ def test_answer_question_hit_passes_screenshot_to_generate(
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
         qa_service,
-        "search_chunks",
+        "run_retrieval",
         lambda **_kwargs: [
             RetrievedChunk(
                 content="c1",

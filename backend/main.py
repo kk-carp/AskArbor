@@ -1,5 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import logging
+import time
 
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
@@ -8,6 +10,7 @@ from backend.config import settings
 from backend.db import init_db
 from backend.infra.embed import load_model
 from backend.infra.open_resource import init_open_resource_search_tools
+from backend.infra.rerank import load_reranker
 from backend.routes import (
     ask,
     auth,
@@ -22,13 +25,44 @@ from backend.routes import (
 )
 from backend.spa import register_frontend
 
+_log = logging.getLogger("uvicorn.error")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # 启动时初始化数据库与向量模型，避免请求阶段重复冷启动。
+    started = time.perf_counter()
+
+    def _step(name: str) -> None:
+        _log.info("startup [%s] ...", name)
+
+    def _done(name: str, t0: float) -> None:
+        _log.info("startup [%s] done (%.1fs)", name, time.perf_counter() - t0)
+
+    t0 = time.perf_counter()
+    _step("1/4 init_db")
     init_db()
+    _done("1/4 init_db", t0)
+
+    t0 = time.perf_counter()
+    _step(f"2/4 load embed model ({settings.embed_model})")
     load_model()
+    _done("2/4 load embed model", t0)
+
+    t0 = time.perf_counter()
+    if settings.retrieve_use_rerank:
+        _step(f"3/4 load reranker ({settings.rerank_model})")
+    else:
+        _step("3/4 load reranker (skipped)")
+    load_reranker()
+    _done("3/4 load reranker", t0)
+
+    t0 = time.perf_counter()
+    _step("4/4 open-resource tools")
     init_open_resource_search_tools()
+    _done("4/4 open-resource tools", t0)
+
+    _log.info("startup complete (%.1fs total)", time.perf_counter() - started)
     yield
     # 当前 MVP 依赖进程退出释放资源，后续可在此补显式清理。
 

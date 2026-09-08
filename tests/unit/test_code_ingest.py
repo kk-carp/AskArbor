@@ -31,6 +31,12 @@ def _patch_db(monkeypatch: pytest.MonkeyPatch):
                 obj.id = str(uuid4())
             added.append(obj)
 
+        def flush(self) -> None:
+            return None
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
         def commit(self) -> None:
             return None
 
