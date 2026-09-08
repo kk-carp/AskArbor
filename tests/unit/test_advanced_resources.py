@@ -12,6 +12,8 @@ def test_list_tools_contains_judge() -> None:
     assert "search_course" in names
     assert "judge_relevance" in names
     assert "summarize_weak_points" in names
+    assert "analyze_capability" in names
+    assert "compose_report" in names
 
 
 def test_run_unknown_tool_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,6 +94,7 @@ def test_plan_refines_then_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(svc.settings, "advanced_resources_max_steps", 20)
     monkeypatch.setattr(svc.settings, "advanced_resources_max_refine", 1)
     monkeypatch.setattr(svc.settings, "advanced_resources_max_topics", 3)
+    monkeypatch.setattr(svc, "list_recent_user_questions", lambda **_k: ["动态规划怎么写"])
 
     doc_id = str(uuid4())
     calls: list[tuple[str, dict]] = []
@@ -176,14 +179,47 @@ def test_plan_refines_then_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
                 ok=True,
                 data={"queries": ["动态规划"], "candidates": [], "candidate_count": 0},
             )
+        if name == "analyze_capability":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={
+                    "strengths": ["爱提问"],
+                    "gaps": ["动态规划"],
+                    "level_summary": "需要补强动态规划",
+                },
+            )
+        if name == "compose_report":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={
+                    "report": {
+                        "title": "建议",
+                        "capability_analysis": "需要补强动态规划",
+                        "weak_points_detail": [{"topic": "动态规划", "why": "反复提问"}],
+                        "materials": [
+                            {
+                                "ref_id": doc_id,
+                                "reason": "直接讲转移方程",
+                                "how_to_use": "先读例题",
+                            }
+                        ],
+                        "next_steps": ["精读讲义", "做一题"],
+                    },
+                    "fallback": False,
+                },
+            )
         raise AssertionError(name)
 
     monkeypatch.setattr(svc, "run_tool", _run)
 
+    seen_steps: list[str] = []
     result = svc.plan_recommendations(
         user_id="u1",
         allowed_spaces=["student"],
         weak_points=["动态规划"],
+        on_step=lambda step: seen_steps.append(step["tool"]),
     )
 
     search_queries = [args.get("query") for name, args in calls if name == "search_course"]
@@ -191,8 +227,36 @@ def test_plan_refines_then_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
     assert any(q and "状态转移" in str(q) for q in search_queries[1:])
     assert len(result.course) == 1
     assert str(result.course[0].document_id) == doc_id
-    assert result.course[0].title == "DP 转移方程"
-    assert any(step["tool"] == "judge_relevance" for step in result.steps)
+    assert result.report is not None
+    assert result.report["materials"][0]["ref_id"] == doc_id
+    assert "analyze_capability" in seen_steps
+    assert "compose_report" in seen_steps
+
+
+def test_hydrate_report_drops_unknown_ref() -> None:
+    catalog = [
+        {
+            "id": "doc-1",
+            "channel": "course",
+            "title": "A",
+            "path": "a.md",
+            "snippet": "x",
+        }
+    ]
+    report = tools.hydrate_report(
+        {
+            "title": "T",
+            "capability_analysis": "分析",
+            "weak_points_detail": [{"topic": "t", "why": "w"}],
+            "materials": [
+                {"ref_id": "doc-1", "reason": "ok", "how_to_use": "读"},
+                {"ref_id": "fake", "reason": "bad", "how_to_use": "x"},
+            ],
+            "next_steps": ["下一步"],
+        },
+        catalog,
+    )
+    assert [m["ref_id"] for m in report["materials"]] == ["doc-1"]
 
 
 def test_search_course_ignores_company(monkeypatch: pytest.MonkeyPatch) -> None:

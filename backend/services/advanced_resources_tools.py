@@ -56,6 +56,16 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "description": "对照薄弱点判定候选去留，必要时建议改写搜索词",
         "params": ["topic", "channel", "candidates", "query"],
     },
+    {
+        "name": "analyze_capability",
+        "description": "根据近期提问与薄弱点生成能力画像",
+        "params": ["questions", "weak_points"],
+    },
+    {
+        "name": "compose_report",
+        "description": "将能力分析与已筛选资料合成为推荐文章结构",
+        "params": ["capability", "weak_points", "materials"],
+    },
 ]
 
 WHITELIST = frozenset(item["name"] for item in TOOL_SPECS)
@@ -379,6 +389,287 @@ def tool_judge_relevance(
     )
 
 
+def _parse_json_object(raw: str) -> dict[str, Any] | None:
+    text = (raw or "").strip()
+    if not text:
+        return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", text)
+        if match is None:
+            return None
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def tool_analyze_capability(
+    *,
+    questions: list[str],
+    weak_points: list[str],
+) -> ToolResult:
+    qs = [str(item).strip() for item in questions if str(item).strip()][:20]
+    topics = [str(item).strip() for item in weak_points if str(item).strip()][:5]
+    fallback = {
+        "strengths": ["愿意主动提问并寻求资料"],
+        "gaps": topics or ["近期提问较少，画像尚不完整"],
+        "level_summary": (
+            "根据近期提问，你正在围绕以下主题补强："
+            + ("、".join(topics) if topics else "课程基础知识")
+            + "。建议先抓住一条主线精读再扩展。"
+        ),
+    }
+    if not qs and not topics:
+        return ToolResult(
+            tool="analyze_capability",
+            ok=True,
+            data=fallback,
+            message="提问记录不足，使用默认能力描述",
+        )
+
+    prompt = (
+        "根据学员近期提问与薄弱点，写一段简短能力分析。"
+        "只输出 JSON 对象，字段：strengths（字符串数组，最多3）、"
+        "gaps（字符串数组，最多5）、level_summary（一段中文，120字内）。"
+        "禁止输出 URL 或外链。\n\n"
+        f"薄弱点：{json.dumps(topics, ensure_ascii=False)}\n"
+        f"近期提问：\n" + "\n".join(f"- {item}" for item in qs)
+    )
+    try:
+        raw = complete_chat(
+            [
+                {
+                    "role": "system",
+                    "content": "你是学伴诊断助手。只输出 JSON；禁止链接。",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
+        payload = _parse_json_object(raw)
+    except UpstreamServiceError:
+        payload = None
+
+    if payload is None:
+        return ToolResult(tool="analyze_capability", ok=True, data=fallback, message="能力分析降级")
+
+    strengths = [str(x).strip() for x in (payload.get("strengths") or []) if str(x).strip()][:3]
+    gaps = [str(x).strip() for x in (payload.get("gaps") or []) if str(x).strip()][:5]
+    summary = payload.get("level_summary")
+    if not isinstance(summary, str) or not summary.strip():
+        summary = fallback["level_summary"]
+    else:
+        summary = summary.strip()[:300]
+        if _URL_RE.search(summary):
+            summary = fallback["level_summary"]
+
+    return ToolResult(
+        tool="analyze_capability",
+        ok=True,
+        data={
+            "strengths": strengths or fallback["strengths"],
+            "gaps": gaps or fallback["gaps"],
+            "level_summary": summary,
+        },
+    )
+
+
+def build_material_catalog(
+    course_items: list[dict[str, Any]],
+    external_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """供 compose_report 使用的资料目录；id 不可被模型发明。"""
+    catalog: list[dict[str, Any]] = []
+    for item in course_items:
+        doc_id = str(item.get("document_id") or item.get("id") or "")
+        if not doc_id:
+            continue
+        catalog.append(
+            {
+                "id": doc_id,
+                "channel": "course",
+                "title": str(item.get("title") or ""),
+                "path": item.get("path"),
+                "snippet": str(item.get("snippet") or "")[:180],
+            }
+        )
+    for item in external_items:
+        url = str(item.get("url") or item.get("id") or "")
+        if not url.startswith("http"):
+            continue
+        catalog.append(
+            {
+                "id": url,
+                "channel": "external",
+                "title": str(item.get("title") or url),
+                "host": item.get("host"),
+                "kind": item.get("kind"),
+                "snippet": str(item.get("snippet") or "")[:180],
+            }
+        )
+    return catalog
+
+
+def hydrate_report(
+    raw_report: dict[str, Any],
+    catalog: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """校验 compose 输出并把 ref_id 回填为可展示资料。"""
+    by_id = {str(item["id"]): item for item in catalog}
+    title = raw_report.get("title")
+    if not isinstance(title, str) or not title.strip():
+        title = "你的进阶学习建议"
+    else:
+        title = title.strip()[:80]
+
+    capability = raw_report.get("capability_analysis")
+    if not isinstance(capability, str) or not capability.strip():
+        capability = ""
+    else:
+        capability = capability.strip()[:800]
+
+    weak_details = []
+    for item in raw_report.get("weak_points_detail") or []:
+        if not isinstance(item, dict):
+            continue
+        topic = str(item.get("topic") or "").strip()
+        why = str(item.get("why") or "").strip()
+        if topic:
+            weak_details.append({"topic": topic[:80], "why": why[:200]})
+
+    materials_out = []
+    for item in raw_report.get("materials") or []:
+        if not isinstance(item, dict):
+            continue
+        ref_id = str(item.get("ref_id") or "").strip()
+        if ref_id not in by_id:
+            continue
+        src = by_id[ref_id]
+        reason = str(item.get("reason") or "").strip()[:300]
+        how = str(item.get("how_to_use") or "").strip()[:200]
+        materials_out.append(
+            {
+                "ref_id": ref_id,
+                "channel": src.get("channel"),
+                "title": src.get("title"),
+                "path": src.get("path"),
+                "url": src.get("id") if src.get("channel") == "external" else None,
+                "host": src.get("host"),
+                "kind": src.get("kind"),
+                "reason": reason or "与当前薄弱点相关",
+                "how_to_use": how or "先通读标题对应章节，再对照自己的提问试着复述要点。",
+            }
+        )
+
+    next_steps = []
+    for item in raw_report.get("next_steps") or []:
+        text = str(item).strip()
+        if text and not _URL_RE.search(text):
+            next_steps.append(text[:120])
+        if len(next_steps) >= 5:
+            break
+    if not next_steps:
+        next_steps = ["先精读一篇最相关的课内资料", "用自己的话总结三个要点", "带着疑问再回到问答页追问"]
+
+    return {
+        "title": title,
+        "capability_analysis": capability,
+        "weak_points_detail": weak_details,
+        "materials": materials_out,
+        "next_steps": next_steps,
+    }
+
+
+def tool_compose_report(
+    *,
+    capability: dict[str, Any],
+    weak_points: list[str],
+    materials: list[dict[str, Any]],
+) -> ToolResult:
+    catalog = materials
+    allowed_ids = [str(item.get("id")) for item in catalog if item.get("id")]
+    fallback_materials = [
+        {
+            "ref_id": cid,
+            "reason": "与识别到的薄弱点相关，建议优先阅读",
+            "how_to_use": "先浏览标题与摘要，再精读与提问最接近的段落。",
+        }
+        for cid in allowed_ids[:6]
+    ]
+    fallback_report = hydrate_report(
+        {
+            "title": "你的进阶学习建议",
+            "capability_analysis": str((capability or {}).get("level_summary") or ""),
+            "weak_points_detail": [{"topic": t, "why": "近期提问中反复出现或尚未掌握"} for t in weak_points[:5]],
+            "materials": fallback_materials,
+            "next_steps": [
+                "按推荐顺序阅读课内资料",
+                "对照薄弱点做一道小练习或复述",
+                "回到问答页针对仍不懂的点继续提问",
+            ],
+        },
+        catalog,
+    )
+
+    if not catalog:
+        return ToolResult(
+            tool="compose_report",
+            ok=True,
+            data={"report": fallback_report, "fallback": True},
+            message="暂无已筛选资料，仅生成能力与下一步建议",
+        )
+
+    prompt = (
+        "你是学伴编辑。根据能力分析与「允许引用的资料目录」写一篇进阶推荐文章结构。"
+        "只输出 JSON，字段："
+        "title，capability_analysis（一段），"
+        "weak_points_detail（[{topic,why}]），"
+        "materials（[{ref_id,reason,how_to_use}]，ref_id 必须来自目录 id），"
+        "next_steps（字符串数组，最多5条）。"
+        "禁止编造目录以外的 ref_id 或任何 URL。\n\n"
+        f"能力分析：{json.dumps(capability, ensure_ascii=False)}\n"
+        f"薄弱点：{json.dumps(weak_points, ensure_ascii=False)}\n"
+        f"资料目录：{json.dumps(catalog, ensure_ascii=False)}"
+    )
+    try:
+        raw = complete_chat(
+            [
+                {
+                    "role": "system",
+                    "content": "只输出 JSON。materials.ref_id 必须来自资料目录。禁止虚构链接。",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
+        payload = _parse_json_object(raw)
+    except UpstreamServiceError:
+        payload = None
+
+    if payload is None:
+        return ToolResult(
+            tool="compose_report",
+            ok=True,
+            data={"report": fallback_report, "fallback": True},
+            message="成文降级",
+        )
+
+    report = hydrate_report(payload, catalog)
+    if not report["capability_analysis"]:
+        report["capability_analysis"] = fallback_report["capability_analysis"]
+    if not report["weak_points_detail"]:
+        report["weak_points_detail"] = fallback_report["weak_points_detail"]
+    if not report["materials"]:
+        report["materials"] = fallback_report["materials"]
+
+    return ToolResult(
+        tool="compose_report",
+        ok=True,
+        data={"report": report, "fallback": False},
+    )
+
+
 def run_tool(name: str, args: dict[str, Any] | None, *, user_id: str) -> ToolResult:
     """执行白名单工具；未知名称由调用方先校验。"""
     payload = args or {}
@@ -405,6 +696,32 @@ def run_tool(name: str, args: dict[str, Any] | None, *, user_id: str) -> ToolRes
             channel=str(payload.get("channel") or ""),
             candidates=[item for item in candidates if isinstance(item, dict)],
             query=str(payload.get("query") or ""),
+        )
+    if name == "analyze_capability":
+        questions = payload.get("questions")
+        if not isinstance(questions, list):
+            questions = list_recent_user_questions(
+                user_id=user_id,
+                limit=settings.learning_path_recent_questions,
+            )
+        weak_points = payload.get("weak_points")
+        if not isinstance(weak_points, list):
+            weak_points = []
+        return tool_analyze_capability(questions=questions, weak_points=weak_points)
+    if name == "compose_report":
+        capability = payload.get("capability")
+        if not isinstance(capability, dict):
+            capability = {}
+        weak_points = payload.get("weak_points")
+        if not isinstance(weak_points, list):
+            weak_points = []
+        materials = payload.get("materials")
+        if not isinstance(materials, list):
+            materials = []
+        return tool_compose_report(
+            capability=capability,
+            weak_points=[str(x) for x in weak_points],
+            materials=[item for item in materials if isinstance(item, dict)],
         )
     return ToolResult(
         tool=name,

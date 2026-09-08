@@ -1,8 +1,9 @@
-"""进阶资料推荐：list / run / plan（自研编排，含相关性改写）。"""
+"""进阶资料推荐：list / run / plan（自研编排，含相关性改写与成文）。"""
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -13,13 +14,17 @@ from backend.schemas import CourseRecommendation, ExternalRecommendation
 from backend.services.advanced_resources_tools import (
     WHITELIST,
     ToolResult,
+    build_material_catalog,
     course_item_from_candidate,
     external_item_from_candidate,
     list_tool_specs,
     run_tool,
 )
+from backend.services.conversation_service import list_recent_user_questions
 
 _audit = logging.getLogger("backend.audit")
+
+StepCallback = Callable[[dict[str, Any]], None]
 
 
 @dataclass
@@ -30,6 +35,7 @@ class PlanResult:
     steps: list[dict[str, Any]] = field(default_factory=list)
     error_type: str | None = None
     message: str | None = None
+    report: dict[str, Any] | None = None
 
 
 def list_tools() -> list[dict[str, Any]]:
@@ -80,12 +86,16 @@ def _append_step(
     result: ToolResult,
     *,
     max_steps: int,
+    on_step: StepCallback | None,
     data_override: dict[str, Any] | None = None,
 ) -> bool:
-    """追加一步；若已达上限返回 False 表示应停止。"""
+    """追加一步并回调；若已达上限返回 False 表示应停止。"""
     if len(steps) >= max_steps:
         return False
-    steps.append(_step_dict(result, data_override))
+    step = _step_dict(result, data_override)
+    steps.append(step)
+    if on_step is not None:
+        on_step(step)
     return len(steps) < max_steps
 
 
@@ -96,8 +106,8 @@ def _search_and_judge_channel(
     steps: list[dict[str, Any]],
     user_id: str,
     max_steps: int,
+    on_step: StepCallback | None,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    """返回 keep 候选列表，以及可能的搜索错误类型。"""
     query = topic
     refine_left = settings.advanced_resources_max_refine
     search_error: str | None = None
@@ -121,7 +131,9 @@ def _search_and_judge_channel(
             if not search.ok and search.error_type:
                 search_error = search.error_type
 
-        if not _append_step(steps, search, max_steps=max_steps, data_override=slim):
+        if not _append_step(
+            steps, search, max_steps=max_steps, on_step=on_step, data_override=slim
+        ):
             break
 
         candidates = search.data.get("candidates") if search.ok else []
@@ -149,9 +161,13 @@ def _search_and_judge_channel(
             "reason": jdata.get("reason"),
             "fallback": bool(jdata.get("fallback")),
         }
-        if not _append_step(steps, judged, max_steps=max_steps, data_override=slim_judge):
+        if not _append_step(
+            steps, judged, max_steps=max_steps, on_step=on_step, data_override=slim_judge
+        ):
             keep = jdata.get("keep") if judged.ok else []
-            return ([item for item in keep if isinstance(item, dict)] if isinstance(keep, list) else []), search_error
+            return (
+                [item for item in keep if isinstance(item, dict)] if isinstance(keep, list) else []
+            ), search_error
 
         keep = jdata.get("keep") if judged.ok else []
         keep_list = [item for item in keep if isinstance(item, dict)] if isinstance(keep, list) else []
@@ -174,56 +190,16 @@ def plan_recommendations(
     user_id: str,
     allowed_spaces: list[str],
     weak_points: list[str] | None = None,
+    on_step: StepCallback | None = None,
 ) -> PlanResult:
-    # #region agent log
-    def _dbg(message: str, data: dict, hypothesis_id: str) -> None:
-        import json, time
-        from pathlib import Path
-
-        try:
-            path = Path(__file__).resolve().parents[2] / "debug-fd20a2.log"
-            with path.open("a", encoding="utf-8") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "fd20a2",
-                            "timestamp": int(time.time() * 1000),
-                            "location": "advanced_resources_service.py:plan",
-                            "message": message,
-                            "data": data,
-                            "hypothesisId": hypothesis_id,
-                            "runId": "post-fix",
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-
-    # #endregion
     require_companion_spaces(allowed_spaces)
     max_steps = settings.advanced_resources_max_steps
     steps: list[dict[str, Any]] = []
 
     topics = [item.strip() for item in (weak_points or []) if item and str(item).strip()]
     if not topics:
-        # #region agent log
-        _dbg("before_summarize", {"user_id": user_id}, "E")
-        # #endregion
         summarized = run_tool("summarize_weak_points", {}, user_id=user_id)
-        # #region agent log
-        _dbg(
-            "after_summarize",
-            {
-                "ok": summarized.ok,
-                "error_type": summarized.error_type,
-                "n_topics": len(summarized.data.get("weak_points") or []),
-            },
-            "E",
-        )
-        # #endregion
-        if not _append_step(steps, summarized, max_steps=max_steps):
+        if not _append_step(steps, summarized, max_steps=max_steps, on_step=on_step):
             return PlanResult(
                 weak_points=[],
                 course=[],
@@ -242,11 +218,10 @@ def plan_recommendations(
             )
 
     topics = topics[: settings.advanced_resources_max_topics]
-    # #region agent log
-    _dbg("topics_ready", {"topics": topics}, "C")
-    # #endregion
     course_acc: list[CourseRecommendation] = []
     external_acc: list[ExternalRecommendation] = []
+    course_raw: list[dict[str, Any]] = []
+    external_raw: list[dict[str, Any]] = []
     seen_docs: set[str] = set()
     seen_urls: set[str] = set()
     error_type: str | None = None
@@ -255,23 +230,14 @@ def plan_recommendations(
         if len(steps) >= max_steps:
             break
 
-        # #region agent log
-        _dbg("before_course_channel", {"topic": topic, "steps": len(steps)}, "C")
-        # #endregion
         course_keep, _ = _search_and_judge_channel(
             topic=topic,
             channel="course",
             steps=steps,
             user_id=user_id,
             max_steps=max_steps,
+            on_step=on_step,
         )
-        # #region agent log
-        _dbg(
-            "after_course_channel",
-            {"topic": topic, "keep": len(course_keep), "steps": len(steps)},
-            "C",
-        )
-        # #endregion
         for item in course_keep:
             mapped = course_item_from_candidate(item)
             if mapped is None:
@@ -280,6 +246,7 @@ def plan_recommendations(
             if doc_id in seen_docs:
                 continue
             seen_docs.add(doc_id)
+            course_raw.append({**item, **mapped})
             course_acc.append(
                 CourseRecommendation(
                     document_id=UUID(doc_id),
@@ -298,6 +265,7 @@ def plan_recommendations(
             steps=steps,
             user_id=user_id,
             max_steps=max_steps,
+            on_step=on_step,
         )
         if search_err and error_type is None:
             error_type = search_err
@@ -309,6 +277,7 @@ def plan_recommendations(
             if url in seen_urls:
                 continue
             seen_urls.add(url)
+            external_raw.append({**item, **mapped})
             external_acc.append(
                 ExternalRecommendation(
                     title=mapped["title"],
@@ -319,6 +288,54 @@ def plan_recommendations(
                 )
             )
 
+    report: dict[str, Any] | None = None
+    if topics and len(steps) < max_steps:
+        questions = list_recent_user_questions(
+            user_id=user_id,
+            limit=settings.learning_path_recent_questions,
+        )
+        analyzed = run_tool(
+            "analyze_capability",
+            {"questions": questions, "weak_points": topics},
+            user_id=user_id,
+        )
+        _append_step(
+            steps,
+            analyzed,
+            max_steps=max_steps,
+            on_step=on_step,
+            data_override={
+                "strengths": analyzed.data.get("strengths"),
+                "gaps": analyzed.data.get("gaps"),
+            },
+        )
+
+        if len(steps) < max_steps:
+            catalog = build_material_catalog(course_raw, external_raw)
+            composed = run_tool(
+                "compose_report",
+                {
+                    "capability": analyzed.data if analyzed.ok else {},
+                    "weak_points": topics,
+                    "materials": catalog,
+                },
+                user_id=user_id,
+            )
+            report = composed.data.get("report") if composed.ok else None
+            if not isinstance(report, dict):
+                report = None
+            _append_step(
+                steps,
+                composed,
+                max_steps=max_steps,
+                on_step=on_step,
+                data_override={
+                    "has_report": report is not None,
+                    "material_count": len((report or {}).get("materials") or []),
+                    "fallback": bool(composed.data.get("fallback")),
+                },
+            )
+
     message: str | None = None
     if error_type == "search_timeout":
         message = "课外搜索超时，课内推荐仍可用" if course_acc else "课外搜索超时，暂无可推荐资料"
@@ -326,7 +343,7 @@ def plan_recommendations(
         message = "课外搜索暂不可用，课内推荐仍可用" if course_acc else "课外搜索暂不可用，暂无可推荐资料"
     elif not topics:
         message = "近期提问多为事务性或教务类问题，暂未识别出知识薄弱点"
-    elif not course_acc and not external_acc:
+    elif not course_acc and not external_acc and report is None:
         message = "没有通过相关性筛选的可推荐资料"
 
     _audit.info(
@@ -345,4 +362,5 @@ def plan_recommendations(
         steps=steps,
         error_type=error_type,
         message=message,
+        report=report,
     )

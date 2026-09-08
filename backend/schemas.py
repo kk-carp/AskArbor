@@ -208,6 +208,31 @@ class AdvancedResourceStep(BaseModel):
     message: str | None = None
 
 
+class AdvancedResourcesWeakPointDetail(BaseModel):
+    topic: str
+    why: str = ""
+
+
+class AdvancedResourcesMaterialItem(BaseModel):
+    ref_id: str
+    channel: str | None = None
+    title: str | None = None
+    path: str | None = None
+    url: str | None = None
+    host: str | None = None
+    kind: str | None = None
+    reason: str = ""
+    how_to_use: str = ""
+
+
+class AdvancedResourcesReport(BaseModel):
+    title: str
+    capability_analysis: str = ""
+    weak_points_detail: list[AdvancedResourcesWeakPointDetail] = []
+    materials: list[AdvancedResourcesMaterialItem] = []
+    next_steps: list[str] = []
+
+
 class AdvancedResourcesPlanResponse(BaseModel):
     weak_points: list[str]
     course: list[CourseRecommendation]
@@ -215,6 +240,7 @@ class AdvancedResourcesPlanResponse(BaseModel):
     steps: list[AdvancedResourceStep] = []
     error_type: str | None = None
     message: str | None = None
+    report: AdvancedResourcesReport | None = None
 
 
 class HealthResponse(BaseModel):

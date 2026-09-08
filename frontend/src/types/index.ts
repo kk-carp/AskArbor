@@ -183,6 +183,32 @@ export interface AdvancedResourcesPlanResponse {
   steps: AdvancedResourceStep[];
   error_type: "search_unavailable" | "search_timeout" | null;
   message: string | null;
+  report: AdvancedResourcesReport | null;
+}
+
+export interface AdvancedResourcesWeakPointDetail {
+  topic: string;
+  why: string;
+}
+
+export interface AdvancedResourcesMaterialItem {
+  ref_id: string;
+  channel: string | null;
+  title: string | null;
+  path: string | null;
+  url: string | null;
+  host: string | null;
+  kind: string | null;
+  reason: string;
+  how_to_use: string;
+}
+
+export interface AdvancedResourcesReport {
+  title: string;
+  capability_analysis: string;
+  weak_points_detail: AdvancedResourcesWeakPointDetail[];
+  materials: AdvancedResourcesMaterialItem[];
+  next_steps: string[];
 }
 
 export interface AdvancedResourceToolSpec {

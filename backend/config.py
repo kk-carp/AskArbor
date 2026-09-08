@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     ocr_enabled: bool = True
 
     # 进阶资料推荐（旁路 Agent：白名单工具 + 相关性判定/改写）
-    advanced_resources_max_steps: int = 12
+    advanced_resources_max_steps: int = 16
     advanced_resources_max_refine: int = 1
     advanced_resources_max_topics: int = 3
     advanced_resources_judge_fallback_k: int = 2

@@ -1,10 +1,17 @@
+import json
+import threading
+from collections.abc import Iterator
+from queue import Queue
+
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from backend.domain.companion import CompanionForbiddenError, require_companion_spaces
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.schemas import (
     AdvancedResourcesPlanRequest,
     AdvancedResourcesPlanResponse,
+    AdvancedResourcesReport,
     AdvancedResourcesRunRequest,
     AdvancedResourcesRunResponse,
     AdvancedResourcesToolsResponse,
@@ -22,6 +29,21 @@ def _require_user(request: Request):
     if context is None:
         raise HTTPException(status_code=401, detail="未登录")
     return context
+
+
+def _plan_response(result) -> AdvancedResourcesPlanResponse:
+    report = None
+    if isinstance(result.report, dict):
+        report = AdvancedResourcesReport.model_validate(result.report)
+    return AdvancedResourcesPlanResponse(
+        weak_points=result.weak_points,
+        course=result.course,
+        external=result.external,
+        steps=[AdvancedResourceStep(**step) for step in result.steps],
+        error_type=result.error_type,
+        message=result.message,
+        report=report,
+    )
 
 
 @router.get("/advanced-resources/tools", response_model=AdvancedResourcesToolsResponse)
@@ -74,46 +96,8 @@ async def advanced_resources_plan(
     request: Request,
     payload: AdvancedResourcesPlanRequest | None = None,
 ) -> AdvancedResourcesPlanResponse:
-    # #region agent log
-    def _dbg(message: str, data: dict, hypothesis_id: str) -> None:
-        import json, time
-        from pathlib import Path
-
-        try:
-            path = Path(__file__).resolve().parents[2] / "debug-fd20a2.log"
-            with path.open("a", encoding="utf-8") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "fd20a2",
-                            "timestamp": int(time.time() * 1000),
-                            "location": "advanced_resources.py:plan",
-                            "message": message,
-                            "data": data,
-                            "hypothesisId": hypothesis_id,
-                            "runId": "post-fix",
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-
-    # #endregion
     context = _require_user(request)
     body = payload or AdvancedResourcesPlanRequest()
-    # #region agent log
-    _dbg(
-        "plan_enter",
-        {
-            "user_id": context.user.id,
-            "spaces": list(context.allowed_spaces),
-            "weak_points": body.weak_points,
-        },
-        "E",
-    )
-    # #endregion
     try:
         result = plan_recommendations(
             user_id=context.user.id,
@@ -125,66 +109,81 @@ async def advanced_resources_plan(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ServiceUnavailableError as exc:
-        # #region agent log
-        _dbg("plan_service_unavailable", {"error": str(exc)}, "A")
-        # #endregion
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except UpstreamServiceError as exc:
-        # #region agent log
-        _dbg("plan_upstream", {"error": str(exc)}, "D")
-        # #endregion
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
-        # #region agent log
-        import traceback
-
-        _dbg(
-            "plan_exception",
-            {
-                "type": type(exc).__name__,
-                "error": str(exc),
-                "traceback": traceback.format_exc()[-2000:],
-            },
-            "A",
-        )
-        # #endregion
         raise HTTPException(status_code=500, detail="进阶资料推荐规划失败") from exc
 
-    # #region agent log
-    _dbg(
-        "plan_ok_before_response",
-        {
-            "topics": len(result.weak_points),
-            "course": len(result.course),
-            "external": len(result.external),
-            "steps": len(result.steps),
-            "step_tools": [s.get("tool") for s in result.steps],
-        },
-        "B",
-    )
-    # #endregion
-    try:
-        return AdvancedResourcesPlanResponse(
-            weak_points=result.weak_points,
-            course=result.course,
-            external=result.external,
-            steps=[AdvancedResourceStep(**step) for step in result.steps],
-            error_type=result.error_type,
-            message=result.message,
-        )
-    except Exception as exc:
-        # #region agent log
-        import traceback
+    return _plan_response(result)
 
-        _dbg(
-            "plan_response_build_failed",
-            {
-                "type": type(exc).__name__,
-                "error": str(exc),
-                "traceback": traceback.format_exc()[-2000:],
-                "sample_step": result.steps[0] if result.steps else None,
-            },
-            "B",
-        )
-        # #endregion
-        raise
+
+def _sse_pack(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+
+
+@router.post("/advanced-resources/plan/stream")
+async def advanced_resources_plan_stream(
+    request: Request,
+    payload: AdvancedResourcesPlanRequest | None = None,
+) -> StreamingResponse:
+    context = _require_user(request)
+    body = payload or AdvancedResourcesPlanRequest()
+    user_id = context.user.id
+    spaces = list(context.allowed_spaces)
+    weak_points = body.weak_points
+
+    def event_gen() -> Iterator[str]:
+        try:
+            require_companion_spaces(spaces)
+        except CompanionForbiddenError as exc:
+            yield _sse_pack("error", {"status": 403, "detail": str(exc)})
+            yield _sse_pack("done", {})
+            return
+
+        q: Queue = Queue()
+
+        def worker() -> None:
+            try:
+                result = plan_recommendations(
+                    user_id=user_id,
+                    allowed_spaces=spaces,
+                    weak_points=weak_points,
+                    on_step=lambda step: q.put(("step", step)),
+                )
+                q.put(("final", result))
+            except CompanionForbiddenError as exc:
+                q.put(("error", {"status": 403, "detail": str(exc)}))
+            except ServiceUnavailableError as exc:
+                q.put(("error", {"status": 503, "detail": str(exc)}))
+            except UpstreamServiceError as exc:
+                q.put(("error", {"status": 502, "detail": str(exc)}))
+            except Exception:
+                q.put(("error", {"status": 500, "detail": "进阶资料推荐规划失败"}))
+            finally:
+                q.put(("done", None))
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        while True:
+            kind, data = q.get()
+            if kind == "step":
+                yield _sse_pack("step", data)
+            elif kind == "final":
+                response = _plan_response(data)
+                yield _sse_pack("final", response.model_dump(mode="json"))
+            elif kind == "error":
+                yield _sse_pack("error", data)
+            elif kind == "done":
+                yield _sse_pack("done", {})
+                break
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
