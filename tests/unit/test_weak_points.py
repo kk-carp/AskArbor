@@ -1,5 +1,6 @@
 import pytest
 
+from backend.infra.generate import ChatResult
 from backend.services import weak_points as wp
 from backend.services.weak_points import is_transactional_question, parse_topic_list
 
@@ -25,7 +26,7 @@ def test_summarize_ignores_transactional_only_history(monkeypatch: pytest.Monkey
 
     def _chat(_messages):
         called["value"] = True
-        return '["作业截止时间"]'
+        return ChatResult(text='["作业截止时间"]')
 
     monkeypatch.setattr(wp, "complete_chat", _chat)
     result = wp.summarize_weak_points(["课程作业提交截止时间", "作业提交方式"])

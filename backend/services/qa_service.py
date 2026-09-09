@@ -35,6 +35,9 @@ class AskResult:
     ticket_id: UUID | None = None
     owner: OwnerInfo | None = None
     error_type: str | None = None
+    llm_called: bool = False
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 def retrieval_query_for_question(question: str, screenshot_text: str | None) -> str:
@@ -232,7 +235,7 @@ def answer_question(
             return _miss_result()
 
         try:
-            answer = generate_answer(
+            generated = generate_answer(
                 normalized_question,
                 retrieved,
                 history=history_tuples,
@@ -261,6 +264,7 @@ def answer_question(
             )
             raise
 
+        answer = generated.text
         append_turn(
             session,
             conversation=conversation,
@@ -286,6 +290,9 @@ def answer_question(
                 conversation_id=UUID(conversation.id),
                 ticket_id=None,
                 owner=None,
+                llm_called=True,
+                prompt_tokens=generated.usage.prompt_tokens,
+                completion_tokens=generated.usage.completion_tokens,
             )
 
         _write_audit(
@@ -304,6 +311,9 @@ def answer_question(
             ticket_id=None,
             owner=None,
             error_type=SCREENSHOT_ONLY,
+            llm_called=True,
+            prompt_tokens=generated.usage.prompt_tokens,
+            completion_tokens=generated.usage.completion_tokens,
         )
 
 
@@ -325,12 +335,22 @@ def _answer_without_conversation(
     if not retrieved and not shot:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
 
-    answer = generate_answer(normalized_question, retrieved, screenshot_text=shot)
+    generated = generate_answer(normalized_question, retrieved, screenshot_text=shot)
     if retrieved:
-        return AskResult(answer=answer, hit=True, sources=_build_sources(retrieved))
+        return AskResult(
+            answer=generated.text,
+            hit=True,
+            sources=_build_sources(retrieved),
+            llm_called=True,
+            prompt_tokens=generated.usage.prompt_tokens,
+            completion_tokens=generated.usage.completion_tokens,
+        )
     return AskResult(
-        answer=answer,
+        answer=generated.text,
         hit=False,
         sources=[],
         error_type=SCREENSHOT_ONLY,
+        llm_called=True,
+        prompt_tokens=generated.usage.prompt_tokens,
+        completion_tokens=generated.usage.completion_tokens,
     )

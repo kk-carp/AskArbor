@@ -66,6 +66,9 @@ class AskResponse(BaseModel):
     ticket_id: UUID | None = None
     owner: OwnerInfo | None = None
     error_type: str | None = None
+    llm_called: bool = False
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
     extracted_text: str | None = None
     extract_method: str | None = None
 

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
-import type { FormInstance, FormRules, UploadFile } from "element-plus";
+import { reactive, ref, watch } from "vue";
+import type { FormInstance, FormRules, UploadFile, UploadInstance, UploadUserFile } from "element-plus";
 import { ElMessage } from "element-plus";
 
 interface CodePackForm {
   file: File | null;
 }
 
-defineProps<{
+const props = defineProps<{
   visible: boolean;
   submitting: boolean;
 }>();
@@ -18,6 +18,8 @@ const emit = defineEmits<{
 }>();
 
 const formRef = ref<FormInstance>();
+const uploadRef = ref<UploadInstance>();
+const fileList = ref<UploadUserFile[]>([]);
 const form = reactive<CodePackForm>({
   file: null,
 });
@@ -37,22 +39,43 @@ const rules: FormRules<CodePackForm> = {
   ],
 };
 
-function handleFileChange(uploadFile: UploadFile): void {
+function resetUploadState(): void {
+  form.file = null;
+  fileList.value = [];
+  uploadRef.value?.clearFiles();
+  formRef.value?.clearValidate();
+}
+
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      resetUploadState();
+    }
+  },
+);
+
+function handleFileChange(uploadFile: UploadFile, files: UploadUserFile[]): void {
   const file = uploadFile.raw ?? null;
   if (!file) {
     form.file = null;
+    fileList.value = files;
     return;
   }
   if (!file.name.toLowerCase().endsWith(".zip")) {
     ElMessage.error("仅支持 zip 课程代码包");
     form.file = null;
+    fileList.value = [];
+    uploadRef.value?.clearFiles();
     return;
   }
   form.file = file;
+  fileList.value = files.slice(-1);
 }
 
 function handleRemove(): void {
   form.file = null;
+  fileList.value = [];
 }
 
 async function handleSubmit(): Promise<void> {
@@ -64,18 +87,25 @@ async function handleSubmit(): Promise<void> {
 }
 
 function handleClose(): void {
-  form.file = null;
-  formRef.value?.resetFields();
+  resetUploadState();
   emit("update:visible", false);
 }
 </script>
 
 <template>
-  <el-dialog :model-value="visible" title="上传课程代码包" width="480px" @close="handleClose">
+  <el-dialog
+    :model-value="visible"
+    title="上传课程代码包"
+    width="480px"
+    destroy-on-close
+    @close="handleClose"
+  >
     <p class="hint">空间由服务端定为课程空间 student，不会写入内部空间。</p>
     <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
       <el-form-item label="zip 包" prop="file">
         <el-upload
+          ref="uploadRef"
+          v-model:file-list="fileList"
           :auto-upload="false"
           :limit="1"
           :on-change="handleFileChange"

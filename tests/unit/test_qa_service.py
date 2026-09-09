@@ -2,9 +2,14 @@ from uuid import uuid4
 
 import pytest
 
+from backend.infra.generate import ChatResult, ChatUsage
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
 from backend.services.qa_service import MISS_ANSWER
+
+
+def _chat(text: str, prompt: int = 10, completion: int = 4) -> ChatResult:
+    return ChatResult(text=text, usage=ChatUsage(prompt_tokens=prompt, completion_tokens=completion))
 
 
 def test_answer_question_returns_miss_without_calling_generate(
@@ -16,9 +21,9 @@ def test_answer_question_returns_miss_without_calling_generate(
 
     called = {"value": False}
 
-    def _fake_generate(_question: str, _chunks: list[RetrievedChunk]) -> str:
+    def _fake_generate(_question: str, _chunks: list[RetrievedChunk]) -> ChatResult:
         called["value"] = True
-        return "should not happen"
+        return _chat("should not happen")
 
     monkeypatch.setattr(qa_service, "generate_answer", _fake_generate)
 
@@ -28,6 +33,9 @@ def test_answer_question_returns_miss_without_calling_generate(
     assert result.answer == MISS_ANSWER
     assert result.sources == []
     assert called["value"] is False
+    assert result.llm_called is False
+    assert result.prompt_tokens == 0
+    assert result.completion_tokens == 0
 
 
 def test_answer_question_returns_miss_when_allowed_spaces_empty(
@@ -45,7 +53,7 @@ def test_answer_question_returns_miss_when_allowed_spaces_empty(
     monkeypatch.setattr(
         qa_service,
         "generate_answer",
-        lambda _question, _chunks: generated.__setitem__("value", True) or "no",
+        lambda _question, _chunks: generated.__setitem__("value", True) or _chat("no"),
     )
 
     result = qa_service.answer_question([], "课程作业怎么交")
@@ -68,7 +76,7 @@ def test_answer_question_returns_miss_when_retrieval_gated_empty(
     monkeypatch.setattr(
         qa_service,
         "generate_answer",
-        lambda _question, _chunks: called.__setitem__("value", True) or "should not happen",
+        lambda _question, _chunks: called.__setitem__("value", True) or _chat("should not happen"),
     )
 
     result = qa_service.answer_question(["student"], "课程作业怎么交")
@@ -105,7 +113,7 @@ def test_answer_question_hit_builds_sources_from_retrieval(
             ),
         ],
     )
-    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: "答案")
+    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: _chat("答案"))
 
     result = qa_service.answer_question(["student"], "课程作业怎么交")
 
@@ -116,6 +124,9 @@ def test_answer_question_hit_builds_sources_from_retrieval(
     assert result.sources[0].title == "课程说明.md"
     assert result.sources[0].path is None
     assert result.sources[0].score == 0.9
+    assert result.llm_called is True
+    assert result.prompt_tokens == 10
+    assert result.completion_tokens == 4
 
 
 def test_answer_question_hit_copies_path_from_retrieval(
@@ -140,7 +151,7 @@ def test_answer_question_hit_copies_path_from_retrieval(
             )
         ],
     )
-    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: "冒泡排序")
+    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: _chat("冒泡排序"))
 
     result = qa_service.answer_question(["student"], "这段排序代码什么意思")
 
@@ -161,7 +172,7 @@ def test_answer_question_screenshot_only_calls_generate_without_ticket_semantics
     def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
         seen["chunks"] = chunks
         seen["screenshot_text"] = screenshot_text
-        return "请在 .env 配置 DEEPSEEK_API_KEY"
+        return _chat("请在 .env 配置 DEEPSEEK_API_KEY")
 
     monkeypatch.setattr(qa_service, "generate_answer", _fake_generate)
 
@@ -177,6 +188,7 @@ def test_answer_question_screenshot_only_calls_generate_without_ticket_semantics
     assert result.sources == []
     assert seen["chunks"] == []
     assert seen["screenshot_text"] == "DEEPSEEK_API_KEY 未设置"
+    assert result.llm_called is True
 
 
 def test_retrieval_query_prefers_user_prompt_when_screenshot_present() -> None:
@@ -212,7 +224,7 @@ def test_answer_question_hit_passes_screenshot_to_generate(
     def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
         seen["screenshot_text"] = screenshot_text
         seen["n_chunks"] = len(chunks)
-        return "答案"
+        return _chat("答案")
 
     monkeypatch.setattr(qa_service, "generate_answer", _fake_generate)
 

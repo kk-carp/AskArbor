@@ -38,6 +38,9 @@ class OcrAskResult:
     ticket_id: UUID | None = None
     owner: OwnerInfo | None = None
     error_type: str | None = None
+    llm_called: bool = False
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
     extracted_text: str | None = None
     extract_method: str | None = None
 
@@ -157,6 +160,9 @@ def ask_with_image(
         ticket_id=result.ticket_id,
         owner=result.owner,
         error_type=result.error_type,
+        llm_called=result.llm_called,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
         extracted_text=extracted,
         extract_method=method,
     )

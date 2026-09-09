@@ -72,16 +72,32 @@ function handleReset(): void {
   handleSearch();
 }
 
-async function handleUpload(payload: { space: SpaceId; file: File }): Promise<void> {
+async function handleUpload(payload: { space: SpaceId; files: File[] }): Promise<void> {
   uploading.value = true;
+  const succeeded: string[] = [];
+  const failed: string[] = [];
   try {
-    const created = await uploadDocument(payload.space, payload.file);
-    ElMessage.success(`上传成功：${created.title}，状态 ${created.status}`);
-    uploadVisible.value = false;
-    await loadDocuments();
-  } catch (error) {
-    const described = describeRequestError(error);
-    ElMessage.error(`${described.title}：${described.detail}`);
+    for (const file of payload.files) {
+      try {
+        const created = await uploadDocument(payload.space, file);
+        succeeded.push(`${created.title}（${created.status}）`);
+      } catch (error) {
+        const described = describeRequestError(error);
+        failed.push(`${file.name}：${described.detail}`);
+      }
+    }
+    if (succeeded.length === 1) {
+      ElMessage.success(`上传成功：${succeeded[0]}`);
+    } else if (succeeded.length > 1) {
+      ElMessage.success(`已上传 ${succeeded.length} 个文档`);
+    }
+    if (failed.length) {
+      ElMessage.error(`上传失败 ${failed.length} 个：${failed.join("；")}`);
+    }
+    if (succeeded.length) {
+      uploadVisible.value = false;
+      await loadDocuments();
+    }
   } finally {
     uploading.value = false;
   }

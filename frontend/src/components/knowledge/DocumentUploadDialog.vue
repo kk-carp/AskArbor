@@ -1,36 +1,38 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
-import type { FormInstance, FormRules, UploadFile } from "element-plus";
+import { reactive, ref, watch } from "vue";
+import type { FormInstance, FormRules, UploadFile, UploadInstance, UploadUserFile } from "element-plus";
 import { ElMessage } from "element-plus";
 import type { SpaceId } from "@/types";
 
 interface UploadForm {
   space: SpaceId;
-  file: File | null;
+  files: File[];
 }
 
-defineProps<{
+const props = defineProps<{
   visible: boolean;
   submitting: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:visible": [value: boolean];
-  submit: [payload: { space: SpaceId; file: File }];
+  submit: [payload: { space: SpaceId; files: File[] }];
 }>();
 
 const formRef = ref<FormInstance>();
+const uploadRef = ref<UploadInstance>();
+const fileList = ref<UploadUserFile[]>([]);
 const form = reactive<UploadForm>({
   space: "student",
-  file: null,
+  files: [],
 });
 
 const rules: FormRules<UploadForm> = {
   space: [{ required: true, message: "请选择知识空间", trigger: "change" }],
-  file: [
+  files: [
     {
-      validator: (_rule, value: File | null, callback) => {
-        if (!value) {
+      validator: (_rule, value: File[], callback) => {
+        if (!value.length) {
           callback(new Error("请选择文件"));
           return;
         }
@@ -41,45 +43,80 @@ const rules: FormRules<UploadForm> = {
   ],
 };
 
-function handleFileChange(uploadFile: UploadFile): void {
-  const file = uploadFile.raw ?? null;
-  if (!file) {
-    form.file = null;
-    return;
-  }
-  const allowed = [".md", ".txt", ".pdf", ".docx"];
-  const name = file.name.toLowerCase();
-  const ext = name.slice(name.lastIndexOf("."));
-  if (!allowed.includes(ext)) {
-    ElMessage.error("仅支持 md / txt / pdf / docx");
-    form.file = null;
-    return;
-  }
-  form.file = file;
+const allowedExt = [".md", ".txt", ".pdf", ".docx"];
+
+function resetUploadState(): void {
+  form.space = "student";
+  form.files = [];
+  fileList.value = [];
+  uploadRef.value?.clearFiles();
+  formRef.value?.clearValidate();
 }
 
-function handleRemove(): void {
-  form.file = null;
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      resetUploadState();
+    }
+  },
+);
+
+function isAllowed(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const ext = name.slice(name.lastIndexOf("."));
+  return allowedExt.includes(ext);
+}
+
+function syncFiles(files: UploadUserFile[]): void {
+  const nextList: UploadUserFile[] = [];
+  const nextFiles: File[] = [];
+  for (const item of files) {
+    const raw = item.raw;
+    if (!raw) {
+      continue;
+    }
+    if (!isAllowed(raw)) {
+      ElMessage.error(`${raw.name}：仅支持 md / txt / pdf / docx`);
+      continue;
+    }
+    nextList.push(item);
+    nextFiles.push(raw);
+  }
+  fileList.value = nextList;
+  form.files = nextFiles;
+}
+
+function handleFileChange(_uploadFile: UploadFile, files: UploadUserFile[]): void {
+  syncFiles(files);
+}
+
+function handleRemove(_uploadFile: UploadFile, files: UploadUserFile[]): void {
+  syncFiles(files);
 }
 
 async function handleSubmit(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false);
-  if (!valid || !form.file) {
+  if (!valid || !form.files.length) {
     return;
   }
-  emit("submit", { space: form.space, file: form.file });
+  emit("submit", { space: form.space, files: [...form.files] });
 }
 
 function handleClose(): void {
-  form.space = "student";
-  form.file = null;
-  formRef.value?.resetFields();
+  resetUploadState();
   emit("update:visible", false);
 }
 </script>
 
 <template>
-  <el-dialog :model-value="visible" title="上传文档" width="480px" @close="handleClose">
+  <el-dialog
+    :model-value="visible"
+    title="上传文档"
+    width="480px"
+    destroy-on-close
+    @close="handleClose"
+  >
     <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
       <el-form-item label="知识空间" prop="space">
         <el-select v-model="form.space" style="width: 100%">
@@ -87,10 +124,12 @@ function handleClose(): void {
           <el-option label="内部空间 company" value="company" />
         </el-select>
       </el-form-item>
-      <el-form-item label="文件" prop="file">
+      <el-form-item label="文件" prop="files">
         <el-upload
+          ref="uploadRef"
+          v-model:file-list="fileList"
           :auto-upload="false"
-          :limit="1"
+          multiple
           :on-change="handleFileChange"
           :on-remove="handleRemove"
           accept=".md,.txt,.pdf,.docx"

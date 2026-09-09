@@ -96,7 +96,7 @@ def summarize_weak_points(questions: list[str]) -> list[str]:
                 },
                 {"role": "user", "content": prompt},
             ]
-        )
+        ).text
     except UpstreamServiceError:
         return fallback
     topics = parse_topic_list(raw)

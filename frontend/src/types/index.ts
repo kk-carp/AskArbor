@@ -52,6 +52,10 @@ export interface AskResponse {
   error_type?: "ocr_failed" | "screenshot_only" | null;
   extracted_text?: string | null;
   extract_method?: "vision" | "ocr" | null;
+  /** 是否调用了生成模型；未命中拒答为 false */
+  llm_called?: boolean;
+  prompt_tokens?: number;
+  completion_tokens?: number;
 }
 
 /** GET /conversations 列表项 */

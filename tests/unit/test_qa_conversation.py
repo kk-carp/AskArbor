@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from backend.errors import UpstreamServiceError
+from backend.infra.generate import ChatResult, ChatUsage
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
 from backend.services.conversation_service import HistoryMessage
@@ -195,7 +196,7 @@ def test_answer_question_passes_history_to_generate(
     def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
         captured["question"] = question
         captured["history"] = history
-        return "本轮答案"
+        return ChatResult(text="本轮答案", usage=ChatUsage(prompt_tokens=20, completion_tokens=6))
 
     monkeypatch.setattr(qa_service, "generate_answer", _fake_generate)
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
@@ -209,4 +210,6 @@ def test_answer_question_passes_history_to_generate(
 
     assert result.hit is True
     assert result.answer == "本轮答案"
+    assert result.llm_called is True
+    assert result.prompt_tokens == 20
     assert captured["history"] == [("user", "上次问题"), ("assistant", "上次答案")]

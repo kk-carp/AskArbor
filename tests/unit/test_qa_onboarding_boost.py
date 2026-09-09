@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import pytest
 
+from backend.infra.generate import ChatResult, ChatUsage
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
 
@@ -31,7 +32,14 @@ def test_answer_question_onboarding_boosts_encode_query(
             )
         ],
     )
-    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: "请先看入职指南")
+    monkeypatch.setattr(
+        qa_service,
+        "generate_answer",
+        lambda *_a, **_k: ChatResult(
+            text="请先看入职指南",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=4),
+        ),
+    )
 
     result = qa_service.answer_question(
         ["company"],

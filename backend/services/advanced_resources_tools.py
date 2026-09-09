@@ -311,7 +311,7 @@ def tool_judge_relevance(
                 },
                 {"role": "user", "content": prompt},
             ]
-        )
+        ).text
         payload = _parse_judge_payload(raw)
     except UpstreamServiceError:
         payload = None
@@ -447,7 +447,7 @@ def tool_analyze_capability(
                 },
                 {"role": "user", "content": prompt},
             ]
-        )
+        ).text
         payload = _parse_json_object(raw)
     except UpstreamServiceError:
         payload = None
@@ -642,7 +642,7 @@ def tool_compose_report(
                 },
                 {"role": "user", "content": prompt},
             ]
-        )
+        ).text
         payload = _parse_json_object(raw)
     except UpstreamServiceError:
         payload = None

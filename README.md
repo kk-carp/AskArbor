@@ -63,8 +63,9 @@ copy .env.example .env
 # 仅启动 PostgreSQL + pgvector 容器，映射本机 5432，不启动 API 容器
 docker compose up -d postgres
 
-# 启动 FastAPI：建表、加载 BGE-M3、提供登录/入库/问答接口；--reload 表示改代码后自动重启
-uvicorn backend.main:app --reload
+# 启动 FastAPI：建表、加载 BGE-M3、提供登录/入库/问答接口
+# --reload-dir backend：只监视后端代码，避免改评测脚本/文档时把正在处理的请求掐掉
+uvicorn backend.main:app --reload --reload-dir backend
 ```
 
 API 默认监听 [http://127.0.0.1:8000](http://127.0.0.1:8000)。可用下面命令确认数据库与向量模型已就绪：
@@ -221,23 +222,28 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_t13_acceptance.ps1
 
 ## Phase 1 最小评测集与基线
 
-最小评测集位于 `docs/samples/eval/phase1_minimal_eval_set.jsonl`，覆盖三类问题：
+最小评测集位于 `docs/samples/eval/phase1_minimal_eval_set.jsonl`，覆盖四类问题：
 
 - 课程类问题（`course`）
 - 公司制度问题（`policy`）
 - 无答案问题（`no_answer`）
+- 越权隔离（`isolation`：学员问内部制度，期望拒答且来源无 `company`）
 
-执行评测并输出命中率、拒答率、来源准确率：
+执行评测并输出命中率、拒答率、来源准确率、隔离通过率、延迟与 token：
 
 ```powershell
 python .\scripts\run_phase1_eval.py --mode live
 ```
+
+评测前确认 API 终端已出现 `Application startup complete`。开发启动请用 `uvicorn backend.main:app --reload --reload-dir backend`，避免改脚本时重启 API。若当前进程监视的是整个 `D:\FDE`，请先停掉再按上面命令重开，然后等模型加载完成再跑评测。
 
 若本机暂时未拉起 API/DB/Embedding，可先输出口径对齐用占位基线：
 
 ```powershell
 python .\scripts\run_phase1_eval.py --mode oracle
 ```
+
+作业说明见 `docs/评估与安全作业.md`。`/ask` 命中时响应带 `llm_called`、`prompt_tokens`、`completion_tokens`（来自 DeepSeek usage）；拒答为 false / 0 / 0。问答页不展示这些字段。
 
 输出文件：
 

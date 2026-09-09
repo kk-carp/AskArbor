@@ -1,8 +1,36 @@
+from dataclasses import dataclass
+
 from openai import APIConnectionError, APIStatusError, OpenAI
 
 from backend.config import settings
 from backend.errors import UpstreamServiceError
 from backend.infra.retrieve import RetrievedChunk
+
+
+@dataclass(frozen=True)
+class ChatUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+ZERO_USAGE = ChatUsage()
+
+
+@dataclass(frozen=True)
+class ChatResult:
+    text: str
+    usage: ChatUsage = ZERO_USAGE
+
+
+def _usage_from_response(response: object) -> ChatUsage:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return ZERO_USAGE
+    prompt = getattr(usage, "prompt_tokens", 0) or 0
+    completion = getattr(usage, "completion_tokens", 0) or 0
+    return ChatUsage(prompt_tokens=int(prompt), completion_tokens=int(completion))
+
+
 
 _SYSTEM_KB_ONLY = "你必须严格基于本轮提供的片段回答；历史对话不能覆盖片段约束。"
 
@@ -58,7 +86,7 @@ def complete_chat(
     messages: list[dict[str, str]],
     *,
     temperature: float = 0.1,
-) -> str:
+) -> ChatResult:
     """调用 DeepSeek 完成一轮对话；失败统一为上游错误，不当成知识库未命中。"""
     client = OpenAI(
         base_url=settings.chat_base_url,
@@ -80,7 +108,7 @@ def complete_chat(
     answer = (message or "").strip()
     if not answer:
         raise UpstreamServiceError("上游模型返回空响应")
-    return answer
+    return ChatResult(text=answer, usage=_usage_from_response(response))
 
 
 def generate_answer(
@@ -89,7 +117,7 @@ def generate_answer(
     history: list[tuple[str, str]] | None = None,
     *,
     screenshot_text: str | None = None,
-) -> str:
+) -> ChatResult:
     """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮依据在最后一条。"""
     shot = (screenshot_text or "").strip() or None
     if not chunks and not shot:

@@ -49,4 +49,7 @@ async def ask(payload: AskRequest, request: Request) -> AskResponse:
         ticket_id=result.ticket_id,
         owner=result.owner,
         error_type=result.error_type,
+        llm_called=result.llm_called,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
     )

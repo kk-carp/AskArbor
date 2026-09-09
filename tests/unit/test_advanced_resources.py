@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import pytest
 
+from backend.infra.generate import ChatResult
 from backend.services import advanced_resources_service as svc
 from backend.services import advanced_resources_tools as tools
 from backend.services.advanced_resources_tools import ToolResult
@@ -49,9 +50,11 @@ def test_judge_filters_invented_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         tools,
         "complete_chat",
-        lambda _messages: (
-            '{"keep_ids":["doc-a","fake-id"],"drop_ids":["doc-b"],'
-            '"need_refine":false,"refined_query":null,"reason":"ok"}'
+        lambda _messages: ChatResult(
+            text=(
+                '{"keep_ids":["doc-a","fake-id"],"drop_ids":["doc-b"],'
+                '"need_refine":false,"refined_query":null,"reason":"ok"}'
+            )
         ),
     )
     result = tools.tool_judge_relevance(
@@ -73,9 +76,11 @@ def test_judge_refine_only_when_keep_empty(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         tools,
         "complete_chat",
-        lambda _messages: (
-            '{"keep_ids":[],"drop_ids":["x"],"need_refine":true,'
-            '"refined_query":"动态规划 状态转移方程","reason":"跑题"}'
+        lambda _messages: ChatResult(
+            text=(
+                '{"keep_ids":[],"drop_ids":["x"],"need_refine":true,'
+                '"refined_query":"动态规划 状态转移方程","reason":"跑题"}'
+            )
         ),
     )
     result = tools.tool_judge_relevance(
