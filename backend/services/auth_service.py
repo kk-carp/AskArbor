@@ -1,3 +1,5 @@
+"""Session 鉴权：校验登录、加载用户，并用空间成员计算允许检索的空间。"""
+
 from dataclasses import dataclass
 
 import bcrypt

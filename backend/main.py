@@ -1,3 +1,5 @@
+"""FastAPI 入口：启动时建库、加载 BGE-M3 与 reranker，挂载路由，并同源托管前端。"""
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import logging

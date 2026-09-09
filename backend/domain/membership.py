@@ -1,3 +1,5 @@
+"""按登录用户的空间成员计算 allowed_spaces；未知角色报错。检索必须使用该列表，客户端不得指定 space_ids。"""
+
 from sqlalchemy import select
 
 from backend import db

@@ -1,3 +1,5 @@
+"""截图识文 HTTP：转写后走既有 /ask 链路；OCR 失败 ≠ 知识库未命中。"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile

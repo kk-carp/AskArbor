@@ -1,3 +1,5 @@
+"""登录 / 登出 / 当前用户：Session Cookie；允许空间由服务端按成员计算。"""
+
 from fastapi import APIRouter, HTTPException, Request
 
 from backend.domain.membership import get_allowed_spaces_for_user

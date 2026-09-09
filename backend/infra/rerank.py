@@ -1,3 +1,5 @@
+"""BGE reranker：对检索候选重打分；启动时加载一次。关 rerank 时检索仍用 dense 分门控。"""
+
 from __future__ import annotations
 
 import logging

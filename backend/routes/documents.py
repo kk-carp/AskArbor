@@ -1,3 +1,5 @@
+"""文档管理 HTTP：上传入库、列表、下线；仅教学岗。失败文档不得参与检索。"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile

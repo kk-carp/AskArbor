@@ -26,6 +26,7 @@ function formatScore(score: number | null | undefined): string {
         <span class="source-space">{{ spaceLabel(item.space_id) }}</span>
         <span v-if="formatScore(item.score)" class="source-score">相似度 {{ formatScore(item.score) }}</span>
         <span v-if="item.path" class="source-path">{{ item.path }}</span>
+        <p v-if="item.snippet" class="source-snippet">{{ item.snippet }}</p>
       </li>
     </ul>
   </details>
@@ -106,5 +107,14 @@ li {
 .source-path {
   width: 100%;
   font-size: 12px;
+}
+
+.source-snippet {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-ink);
+  white-space: normal;
 }
 </style>

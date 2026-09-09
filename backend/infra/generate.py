@@ -1,3 +1,5 @@
+"""DeepSeek 作答：只依据本轮召回片段（及可选截图文字）；支持同步与流式；不生成来源。"""
+
 from collections.abc import Iterator
 from dataclasses import dataclass
 

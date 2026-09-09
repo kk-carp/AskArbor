@@ -1,3 +1,5 @@
+"""SQLAlchemy 引擎与会话；启动时建表并确保 student / company 空间存在。"""
+
 from collections.abc import Generator
 import logging
 

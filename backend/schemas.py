@@ -1,3 +1,5 @@
+"""对外 API 的 Pydantic 模型；路由只做校验与响应转换，字段与实现保持一致。"""
+
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -46,6 +48,7 @@ class SourceItem(BaseModel):
     space_id: str
     path: str | None = None
     score: float | None = None
+    snippet: str | None = None
 
 
 class OwnerInfo(BaseModel):

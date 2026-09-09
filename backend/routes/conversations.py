@@ -1,3 +1,5 @@
+"""会话 HTTP：列出当前用户会话与消息；消息不进入知识库。"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request

@@ -124,6 +124,7 @@ def test_answer_question_hit_builds_sources_from_retrieval(
     assert result.sources[0].title == "课程说明.md"
     assert result.sources[0].path is None
     assert result.sources[0].score == 0.9
+    assert result.sources[0].snippet == "c1"
     assert result.llm_called is True
     assert result.prompt_tokens == 10
     assert result.completion_tokens == 4
@@ -159,6 +160,39 @@ def test_answer_question_hit_copies_path_from_retrieval(
     assert result.sources[0].path == "labs/sort.py"
     assert result.sources[0].title == "labs/sort.py"
     assert result.sources[0].score == 0.91
+    assert result.sources[0].snippet == "def bubble_sort"
+
+
+def test_answer_question_hit_source_snippet_truncates_chunk_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc_id = uuid4()
+    long_body = "作业请在平台提交。" + ("后续说明。" * 40)
+    monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
+    monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
+    monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
+    monkeypatch.setattr(
+        qa_service,
+        "run_retrieval",
+        lambda **_kwargs: [
+            RetrievedChunk(
+                content=long_body,
+                score=0.88,
+                document_id=doc_id,
+                title="课程说明.md",
+                space_id="student",
+            )
+        ],
+    )
+    monkeypatch.setattr(qa_service, "generate_answer", lambda *_a, **_k: _chat("答案"))
+
+    result = qa_service.answer_question(["student"], "作业怎么交")
+
+    snippet = result.sources[0].snippet or ""
+    assert snippet.startswith("作业请在平台提交。")
+    assert snippet.endswith("…")
+    assert len(snippet) <= qa_service.SOURCE_SNIPPET_CHARS + 1
+    assert long_body not in snippet
 
 
 def test_answer_question_screenshot_only_calls_generate_without_ticket_semantics(

@@ -1,3 +1,5 @@
+"""问答 HTTP：POST /ask 返回完整 JSON；POST /ask/stream 为 SSE。鉴权后交给 qa_service，路由内不做检索或生成。"""
+
 import json
 from collections.abc import Iterator
 

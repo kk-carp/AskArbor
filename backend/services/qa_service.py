@@ -1,3 +1,5 @@
+"""问答编排：空间内检索、命中判断、拒答、来源与会话落库。未命中不调模型；来源只来自召回记录。"""
+
 import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -23,6 +25,7 @@ from backend.services.topic_owner_service import lookup_owner_for_employee
 MISS_ANSWER = "知识库中没有足够依据回答这个问题。"
 SCREENSHOT_MARKER = "【截图文字】"
 SCREENSHOT_ONLY = "screenshot_only"
+SOURCE_SNIPPET_CHARS = 160
 
 _audit_logger = logging.getLogger("backend.audit")
 
@@ -53,6 +56,14 @@ def retrieval_query_for_question(question: str, screenshot_text: str | None) -> 
     return shot[:800]
 
 
+def _snippet_from_content(content: str, limit: int = SOURCE_SNIPPET_CHARS) -> str:
+    """从来源召回正文截一段预览；不经过模型。"""
+    collapsed = " ".join((content or "").split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[:limit].rstrip() + "…"
+
+
 def _build_sources(retrieved) -> list[SourceItem]:
     unique_sources: list[SourceItem] = []
     seen_document_ids: set[str] = set()
@@ -68,6 +79,7 @@ def _build_sources(retrieved) -> list[SourceItem]:
                 space_id=item.space_id,
                 path=item.path,
                 score=round(float(item.score), 4),
+                snippet=_snippet_from_content(item.content),
             )
         )
         if len(unique_sources) >= 3:

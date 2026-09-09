@@ -1,3 +1,5 @@
+"""健康检查：数据库可连且向量模型已加载则 ready。"""
+
 from fastapi import APIRouter
 from sqlalchemy import text
 

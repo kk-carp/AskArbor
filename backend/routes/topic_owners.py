@@ -1,3 +1,5 @@
+"""内部主题负责人 HTTP：教学岗维护关键词与联系方式；无匹配则明确未配置。"""
+
 from fastapi import APIRouter, HTTPException, Request
 
 from backend.errors import ServiceUnavailableError

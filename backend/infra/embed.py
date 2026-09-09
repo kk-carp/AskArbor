@@ -1,3 +1,5 @@
+"""BGE-M3 Embedding：进程启动时加载一次，请求内只做 encode，不重复加载模型。"""
+
 from __future__ import annotations
 
 import logging

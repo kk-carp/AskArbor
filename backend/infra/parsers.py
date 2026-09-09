@@ -1,3 +1,5 @@
+"""按格式把文档转成纯文本（md/txt/pdf/docx/pptx）；空文件或无文字则失败。不切片、不访问数据库。"""
+
 from pathlib import Path
 
 from docx import Document as DocxDocument

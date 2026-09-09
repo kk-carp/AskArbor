@@ -1,3 +1,5 @@
+"""学员工单 HTTP：未命中可建单、班主任回复；502/503 不得建单。"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request

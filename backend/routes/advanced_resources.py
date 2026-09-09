@@ -1,3 +1,5 @@
+"""进阶资料推荐 HTTP：工具列表、单步执行、规划；plan/stream 为 SSE 轨迹。"""
+
 import json
 import threading
 from collections.abc import Iterator

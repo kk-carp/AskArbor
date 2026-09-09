@@ -1,3 +1,5 @@
+"""同源托管 frontend/dist；未构建时返回 503，不回退到旧 HTML。"""
+
 from pathlib import Path
 
 from fastapi import FastAPI

@@ -30,6 +30,8 @@ export interface SourceItem {
   path?: string | null;
   /** 向量相似度（越高越相关）；旧响应可能缺省 */
   score?: number | null;
+  /** 命中切片正文预览，来自召回记录 */
+  snippet?: string | null;
 }
 
 /** 员工未命中时的主题负责人 */

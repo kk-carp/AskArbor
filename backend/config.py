@@ -1,3 +1,5 @@
+"""集中读取环境配置（.env）；其它模块通过 settings 取值，不得直接 os.getenv。"""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

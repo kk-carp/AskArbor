@@ -1,3 +1,5 @@
+"""课程代码 zip 入库：解包后按文件切片写入 student 空间；失败条目标 failed，不混入检索。"""
+
 from dataclasses import dataclass
 from uuid import UUID
 

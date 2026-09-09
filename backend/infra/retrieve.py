@@ -1,3 +1,5 @@
+"""按允许空间在 SQL WHERE 中过滤后召回切片；支持 dense / 混合检索，可选重排。禁止全量检索后再在 Python 中过滤。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace

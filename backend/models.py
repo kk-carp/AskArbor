@@ -1,3 +1,5 @@
+"""ORM 表：spaces / documents / chunks（含 1024 维向量）以及会话、成员、工单等。"""
+
 from datetime import datetime
 from enum import Enum
 from uuid import uuid4

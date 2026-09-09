@@ -1,3 +1,5 @@
+"""课程代码包 HTTP：zip 上传后由服务端写入 student，客户端不能改空间。"""
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from backend.config import settings

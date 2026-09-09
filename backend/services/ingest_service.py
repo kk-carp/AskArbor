@@ -1,3 +1,5 @@
+"""文档入库：保存、解析、切片、向量化并写入 documents/chunks；失败回滚切片并将文档标为 failed。"""
+
 from dataclasses import dataclass
 from uuid import UUID
 

@@ -1,3 +1,5 @@
+"""本地上传存储：校验扩展名与大小、净化文件名，写入 data/uploads/{space_id}/。不解析文件内容。"""
+
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 import re

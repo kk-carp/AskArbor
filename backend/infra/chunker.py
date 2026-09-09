@@ -1,3 +1,6 @@
+"""固定窗口切片；overlap 必须小于 chunk_size。不解析文件、不写库。"""
+
+
 def split_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
     """按固定窗口切片，输出去空后的片段。"""
     if chunk_size <= 0:
