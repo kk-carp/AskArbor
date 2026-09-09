@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
+from backend.config import settings
 from backend.errors import ServiceUnavailableError
 from backend.schemas import DocumentResponse
 from backend.services.auth_service import can_manage_documents, load_auth_context
@@ -74,7 +75,11 @@ async def upload_document(
     except ValueError as exc:
         detail = str(exc)
         if "exceeds max size" in detail:
-            raise HTTPException(status_code=413, detail=detail) from exc
+            limit_mb = settings.max_upload_bytes / (1024 * 1024)
+            raise HTTPException(
+                status_code=413,
+                detail=f"文件超过大小上限（{limit_mb:g} MB）",
+            ) from exc
         raise HTTPException(status_code=400, detail=detail) from exc
     except ServiceUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
