@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     rerank_min_score: float = 0.0
 
     upload_dir: str = "data/uploads"
-    max_upload_bytes: int = 10 * 1024 * 1024
+    # 课件 PPTX 常带图片，10 MB 不够；仍可用 MAX_UPLOAD_BYTES 覆盖
+    max_upload_bytes: int = 50 * 1024 * 1024
 
     chunk_size: int = 800
     chunk_overlap: int = 100

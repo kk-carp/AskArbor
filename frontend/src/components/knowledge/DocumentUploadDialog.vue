@@ -135,6 +135,9 @@ function handleClose(): void {
           accept=".md,.txt,.pdf,.docx,.pptx"
         >
           <el-button>选择文件</el-button>
+          <template #tip>
+            <div class="el-upload__tip">支持 md / txt / pdf / docx / pptx，单个不超过 50 MB</div>
+          </template>
         </el-upload>
       </el-form-item>
     </el-form>

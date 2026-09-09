@@ -54,7 +54,8 @@ def save_upload(
     size = raw_file.tell()
     raw_file.seek(0)
     if size > settings.max_upload_bytes:
-        raise ValueError("File exceeds max size")
+        limit_mb = settings.max_upload_bytes / (1024 * 1024)
+        raise ValueError(f"File exceeds max size ({limit_mb:g} MB)")
 
     upload_root = Path(settings.upload_dir)
     target_dir = upload_root / space_id

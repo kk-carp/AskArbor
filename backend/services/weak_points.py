@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 
 from backend.errors import UpstreamServiceError
 from backend.infra.generate import complete_chat
@@ -20,6 +21,22 @@ _TRANSACTIONAL_RE = re.compile(
     r")",
     re.I,
 )
+_MAX_TOPICS = 3
+_SCHEMA_RULE = (
+    "只输出 JSON 字符串数组，最多 3 项，例如 [\"动态规划\"]。"
+    "不要 Markdown、对象、URL 或说明文字。"
+    "只含知识薄弱点；禁止事务性教务问题。"
+)
+_REPAIR_USER = (
+    "上次输出不符合 schema：必须是 JSON 字符串数组，例如 [\"动态规划\"]。"
+    "不要 Markdown、对象或其它文字。没有知识薄弱点时输出 []。"
+)
+
+
+@dataclass(frozen=True)
+class TopicSchemaResult:
+    topics: list[str]
+    schema_ok: bool
 
 
 def strip_urls(text: str) -> str:
@@ -34,38 +51,56 @@ def is_transactional_question(text: str) -> bool:
     return _TRANSACTIONAL_RE.search(cleaned) is not None
 
 
-def parse_topic_list(raw: str) -> list[str]:
-    text = (raw or "").strip()
-    data: object
+def _sanitize_topic(item: object) -> str | None:
+    if not isinstance(item, str):
+        return None
+    cleaned = strip_urls(item)
+    if not cleaned or "://" in cleaned or is_transactional_question(cleaned):
+        return None
+    return cleaned
+
+
+def _parse_json_array(text: str) -> list[object] | None:
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
         match = re.search(r"\[[\s\S]*\]", text)
         if match is None:
-            topics: list[str] = []
-            for line in text.splitlines():
-                cleaned = strip_urls(line.lstrip("-* ").strip())
-                if cleaned and "://" not in cleaned and not is_transactional_question(cleaned):
-                    topics.append(cleaned)
-                if len(topics) >= 5:
-                    break
-            return topics
+            return None
         try:
             data = json.loads(match.group(0))
         except json.JSONDecodeError:
-            return []
-    if not isinstance(data, list):
-        return []
-    topics = []
+            return None
+    return data if isinstance(data, list) else None
+
+
+def parse_topic_schema(raw: str) -> TopicSchemaResult:
+    """校验模型输出是否为 JSON 字符串数组；非法 JSON / 非数组视为 schema 失败。"""
+    text = (raw or "").strip()
+    if not text:
+        return TopicSchemaResult(topics=[], schema_ok=False)
+    data = _parse_json_array(text)
+    if data is None:
+        return TopicSchemaResult(topics=[], schema_ok=False)
+    topics: list[str] = []
     for item in data:
-        if not isinstance(item, str):
-            continue
-        cleaned = strip_urls(item)
-        if cleaned and "://" not in cleaned and not is_transactional_question(cleaned):
+        cleaned = _sanitize_topic(item)
+        if cleaned:
             topics.append(cleaned)
-        if len(topics) >= 5:
+        if len(topics) >= _MAX_TOPICS:
             break
-    return topics
+    return TopicSchemaResult(topics=topics, schema_ok=True)
+
+
+def parse_topic_list(raw: str) -> list[str]:
+    return parse_topic_schema(raw).topics
+
+
+def _complete_text(messages: list[dict[str, str]]) -> str | None:
+    try:
+        return complete_chat(messages).text
+    except UpstreamServiceError:
+        return None
 
 
 def summarize_weak_points(questions: list[str]) -> list[str]:
@@ -80,24 +115,27 @@ def summarize_weak_points(questions: list[str]) -> list[str]:
         "必须忽略事务性/教务类提问，例如：作业截止时间、提交方式、上课或考试时间地点、"
         "请假报名、联系班主任、成绩学分等；这些不能出现在结果中。"
         "若没有可归纳的知识性问题，输出空数组 []。"
-        "只输出 JSON 字符串数组，例如 [\"动态规划\"]。"
-        "不要输出 URL、广告或外链。\n\n"
+        f"{_SCHEMA_RULE}\n\n"
         + "\n".join(f"- {item}" for item in cleaned[:20])
     )
-    try:
-        raw = complete_chat(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        "只输出 JSON 字符串数组。"
-                        "只含知识薄弱点；禁止事务性教务问题；禁止链接。"
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ]
-        ).text
-    except UpstreamServiceError:
+    messages = [
+        {"role": "system", "content": _SCHEMA_RULE},
+        {"role": "user", "content": prompt},
+    ]
+    raw = _complete_text(messages)
+    if raw is None:
         return fallback
-    topics = parse_topic_list(raw)
-    return topics or fallback
+    parsed = parse_topic_schema(raw)
+    if not parsed.schema_ok:
+        repair = [
+            *messages,
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content": _REPAIR_USER},
+        ]
+        raw = _complete_text(repair)
+        if raw is None:
+            return fallback
+        parsed = parse_topic_schema(raw)
+        if not parsed.schema_ok:
+            return fallback
+    return parsed.topics or fallback
