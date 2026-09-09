@@ -43,7 +43,7 @@ const rules: FormRules<UploadForm> = {
   ],
 };
 
-const allowedExt = [".md", ".txt", ".pdf", ".docx"];
+const allowedExt = [".md", ".txt", ".pdf", ".docx", ".pptx"];
 
 function resetUploadState(): void {
   form.space = "student";
@@ -77,7 +77,7 @@ function syncFiles(files: UploadUserFile[]): void {
       continue;
     }
     if (!isAllowed(raw)) {
-      ElMessage.error(`${raw.name}：仅支持 md / txt / pdf / docx`);
+      ElMessage.error(`${raw.name}：仅支持 md / txt / pdf / docx / pptx`);
       continue;
     }
     nextList.push(item);
@@ -132,7 +132,7 @@ function handleClose(): void {
           multiple
           :on-change="handleFileChange"
           :on-remove="handleRemove"
-          accept=".md,.txt,.pdf,.docx"
+          accept=".md,.txt,.pdf,.docx,.pptx"
         >
           <el-button>选择文件</el-button>
         </el-upload>

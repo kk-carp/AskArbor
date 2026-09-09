@@ -48,6 +48,20 @@ def test_save_upload_rejects_unsupported_extension() -> None:
         storage.save_upload(upload, "student")
 
 
+def test_save_upload_accepts_pptx(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(storage.settings, "upload_dir", str(tmp_path / "uploads"))
+    monkeypatch.setattr(storage.settings, "max_upload_bytes", 1024)
+    upload = _upload_file("slides.pptx", b"PK\x03\x04fake")
+
+    stored = storage.save_upload(upload, "student")
+
+    assert stored.original_name == "slides.pptx"
+    assert stored.path.name.endswith("_slides.pptx")
+    assert stored.path.parent == tmp_path / "uploads" / "student"
+
+
 def test_save_upload_rejects_invalid_space_id() -> None:
     upload = _upload_file("course.md", b"content")
 

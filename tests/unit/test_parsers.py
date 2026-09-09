@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 from docx import Document as DocxDocument
+from pptx import Presentation
+from pptx.util import Inches
 from pypdf import PdfWriter
 
 from backend.infra import parsers
@@ -75,3 +77,54 @@ def test_parse_document_raises_for_unsupported_extension(tmp_path: Path) -> None
 
     with pytest.raises(ValueError, match="Unsupported file extension"):
         parsers.parse_document(file_path, "csv")
+
+
+def _blank_layout(presentation: Presentation):
+    return presentation.slide_layouts[min(6, len(presentation.slide_layouts) - 1)]
+
+
+def test_parse_document_reads_pptx_title_body_table_and_notes(tmp_path: Path) -> None:
+    file_path = tmp_path / "course.pptx"
+    presentation = Presentation()
+    title_slide = presentation.slides.add_slide(presentation.slide_layouts[0])
+    title_slide.shapes.title.text = "课程标题"
+    if len(title_slide.placeholders) > 1:
+        title_slide.placeholders[1].text = "课程正文"
+    title_slide.notes_slide.notes_text_frame.text = "讲师备注"
+
+    table_slide = presentation.slides.add_slide(_blank_layout(presentation))
+    table = table_slide.shapes.add_table(
+        2, 2, Inches(0.5), Inches(0.5), Inches(4), Inches(1.5)
+    ).table
+    table.cell(0, 0).text = "姓名"
+    table.cell(0, 1).text = "学号"
+    table.cell(1, 0).text = "张三"
+    table.cell(1, 1).text = "001"
+    presentation.save(file_path)
+
+    text = parsers.parse_document(file_path, "pptx")
+    assert "第 1 页" in text
+    assert "课程标题" in text
+    assert "课程正文" in text
+    assert "讲师备注" in text
+    assert "第 2 页" in text
+    assert "姓名" in text
+    assert "学号" in text
+    assert "张三" in text
+    assert "001" in text
+
+
+def test_parse_document_raises_for_empty_pptx(tmp_path: Path) -> None:
+    file_path = tmp_path / "empty.pptx"
+    Presentation().save(file_path)
+
+    with pytest.raises(ValueError, match="Document text is empty"):
+        parsers.parse_document(file_path, "pptx")
+
+
+def test_parse_document_rejects_legacy_ppt(tmp_path: Path) -> None:
+    file_path = tmp_path / "old.ppt"
+    file_path.write_bytes(b"legacy-ppt")
+
+    with pytest.raises(ValueError, match="Unsupported file extension"):
+        parsers.parse_document(file_path, "ppt")

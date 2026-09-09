@@ -8,7 +8,7 @@ from fastapi import UploadFile
 
 from backend.config import settings
 
-ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx"}
+ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx", "pptx"}
 ALLOWED_SPACES = {"student", "company"}
 
 
