@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -36,6 +37,32 @@ class PlanResult:
     error_type: str | None = None
     message: str | None = None
     report: dict[str, Any] | None = None
+    from_cache: bool = False
+
+
+# 进程内按用户缓存；无 Redis。进页读缓存，显式 refresh 才重建。
+_plan_cache: dict[str, PlanResult] = {}
+
+
+def clear_advanced_resources_cache() -> None:
+    """测试或热重载时清空缓存。"""
+    _plan_cache.clear()
+
+
+def _clone_plan_result(source: PlanResult, *, from_cache: bool) -> PlanResult:
+    report = None
+    if isinstance(source.report, dict):
+        report = json.loads(json.dumps(source.report, ensure_ascii=False, default=str))
+    return PlanResult(
+        weak_points=list(source.weak_points),
+        course=list(source.course),
+        external=list(source.external),
+        steps=json.loads(json.dumps(source.steps, ensure_ascii=False, default=str)),
+        error_type=source.error_type,
+        message=source.message,
+        report=report,
+        from_cache=from_cache,
+    )
 
 
 def list_tools() -> list[dict[str, Any]]:
@@ -88,14 +115,20 @@ def _append_step(
     max_steps: int,
     on_step: StepCallback | None,
     data_override: dict[str, Any] | None = None,
+    force: bool = False,
 ) -> bool:
-    """追加一步并回调；若已达上限返回 False 表示应停止。"""
-    if len(steps) >= max_steps:
+    """追加一步并回调；若已达上限返回 False 表示应停止。
+
+    force=True 用于成文步骤：即使检索预算已满也必须写入轨迹。
+    """
+    if not force and len(steps) >= max_steps:
         return False
     step = _step_dict(result, data_override)
     steps.append(step)
     if on_step is not None:
         on_step(step)
+    if force:
+        return True
     return len(steps) < max_steps
 
 
@@ -194,27 +227,29 @@ def plan_recommendations(
 ) -> PlanResult:
     require_companion_spaces(allowed_spaces)
     max_steps = settings.advanced_resources_max_steps
+    # 为 analyze_capability + compose_report 预留 2 步，避免检索占满后无文章
+    article_reserve = 2
+    search_budget = max(0, max_steps - article_reserve)
     steps: list[dict[str, Any]] = []
 
     topics = [item.strip() for item in (weak_points or []) if item and str(item).strip()]
     if not topics:
         summarized = run_tool("summarize_weak_points", {}, user_id=user_id)
-        if not _append_step(steps, summarized, max_steps=max_steps, on_step=on_step):
-            return PlanResult(
-                weak_points=[],
-                course=[],
-                external=[],
-                steps=steps,
-                message=summarized.message or "步数不足",
-            )
+        _append_step(
+            steps,
+            summarized,
+            max_steps=search_budget,
+            on_step=on_step,
+            force=True,
+        )
         topics = list(summarized.data.get("weak_points") or [])
-        if summarized.message and not topics:
+        if not topics:
             return PlanResult(
                 weak_points=[],
                 course=[],
                 external=[],
                 steps=steps,
-                message=summarized.message,
+                message=summarized.message or "近期提问不足，暂未识别出知识薄弱点",
             )
 
     topics = topics[: settings.advanced_resources_max_topics]
@@ -227,7 +262,7 @@ def plan_recommendations(
     error_type: str | None = None
 
     for topic in topics:
-        if len(steps) >= max_steps:
+        if len(steps) >= search_budget:
             break
 
         course_keep, _ = _search_and_judge_channel(
@@ -235,7 +270,7 @@ def plan_recommendations(
             channel="course",
             steps=steps,
             user_id=user_id,
-            max_steps=max_steps,
+            max_steps=search_budget,
             on_step=on_step,
         )
         for item in course_keep:
@@ -256,7 +291,7 @@ def plan_recommendations(
                 )
             )
 
-        if len(steps) >= max_steps:
+        if len(steps) >= search_budget:
             break
 
         external_keep, search_err = _search_and_judge_channel(
@@ -264,7 +299,7 @@ def plan_recommendations(
             channel="external",
             steps=steps,
             user_id=user_id,
-            max_steps=max_steps,
+            max_steps=search_budget,
             on_step=on_step,
         )
         if search_err and error_type is None:
@@ -289,7 +324,8 @@ def plan_recommendations(
             )
 
     report: dict[str, Any] | None = None
-    if topics and len(steps) < max_steps:
+    # 成文不占用检索预算：即使 search_budget 已满也必须生成文章
+    if topics:
         questions = list_recent_user_questions(
             user_id=user_id,
             limit=settings.learning_path_recent_questions,
@@ -308,33 +344,34 @@ def plan_recommendations(
                 "strengths": analyzed.data.get("strengths"),
                 "gaps": analyzed.data.get("gaps"),
             },
+            force=True,
         )
 
-        if len(steps) < max_steps:
-            catalog = build_material_catalog(course_raw, external_raw)
-            composed = run_tool(
-                "compose_report",
-                {
-                    "capability": analyzed.data if analyzed.ok else {},
-                    "weak_points": topics,
-                    "materials": catalog,
-                },
-                user_id=user_id,
-            )
-            report = composed.data.get("report") if composed.ok else None
-            if not isinstance(report, dict):
-                report = None
-            _append_step(
-                steps,
-                composed,
-                max_steps=max_steps,
-                on_step=on_step,
-                data_override={
-                    "has_report": report is not None,
-                    "material_count": len((report or {}).get("materials") or []),
-                    "fallback": bool(composed.data.get("fallback")),
-                },
-            )
+        catalog = build_material_catalog(course_raw, external_raw)
+        composed = run_tool(
+            "compose_report",
+            {
+                "capability": analyzed.data if analyzed.ok else {},
+                "weak_points": topics,
+                "materials": catalog,
+            },
+            user_id=user_id,
+        )
+        report = composed.data.get("report") if composed.ok else None
+        if not isinstance(report, dict):
+            report = None
+        _append_step(
+            steps,
+            composed,
+            max_steps=max_steps,
+            on_step=on_step,
+            data_override={
+                "has_report": report is not None,
+                "material_count": len((report or {}).get("materials") or []),
+                "fallback": bool(composed.data.get("fallback")),
+            },
+            force=True,
+        )
 
     message: str | None = None
     if error_type == "search_timeout":
@@ -363,4 +400,42 @@ def plan_recommendations(
         error_type=error_type,
         message=message,
         report=report,
+        from_cache=False,
     )
+
+
+def get_cached_advanced_resources(user_id: str) -> PlanResult | None:
+    cached = _plan_cache.get(user_id)
+    if cached is None:
+        return None
+    return _clone_plan_result(cached, from_cache=True)
+
+
+def get_advanced_resources(
+    *,
+    user_id: str,
+    allowed_spaces: list[str],
+    refresh: bool = False,
+    weak_points: list[str] | None = None,
+    on_step: StepCallback | None = None,
+) -> PlanResult:
+    """默认返回该用户缓存；refresh=True 或无缓存时重新生成并写入。
+
+    缓存命中时不调用 on_step（避免假装实时跑工具）；调用方应直接展示缓存 steps。
+    """
+    require_companion_spaces(allowed_spaces)
+    if not refresh:
+        cached = _plan_cache.get(user_id)
+        if cached is not None:
+            return _clone_plan_result(cached, from_cache=True)
+
+    result = plan_recommendations(
+        user_id=user_id,
+        allowed_spaces=allowed_spaces,
+        weak_points=weak_points,
+        on_step=on_step,
+    )
+    # 不缓存「提问不足」的空结果，避免学员问完后仍看到空缓存
+    if result.weak_points or result.course or result.external or result.report:
+        _plan_cache[user_id] = _clone_plan_result(result, from_cache=False)
+    return _clone_plan_result(result, from_cache=False)

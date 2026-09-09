@@ -164,15 +164,6 @@ class ExternalRecommendation(BaseModel):
     snippet: str = ""
 
 
-class LearningPathResponse(BaseModel):
-    weak_points: list[str]
-    course: list[CourseRecommendation]
-    external: list[ExternalRecommendation]
-    error_type: str | None = None
-    message: str | None = None
-    from_cache: bool = False
-
-
 class AdvancedResourceToolSpec(BaseModel):
     name: str
     description: str
@@ -198,6 +189,7 @@ class AdvancedResourcesRunResponse(BaseModel):
 
 class AdvancedResourcesPlanRequest(BaseModel):
     weak_points: list[str] | None = None
+    refresh: bool = False
 
 
 class AdvancedResourceStep(BaseModel):
@@ -241,6 +233,7 @@ class AdvancedResourcesPlanResponse(BaseModel):
     error_type: str | None = None
     message: str | None = None
     report: AdvancedResourcesReport | None = None
+    from_cache: bool = False
 
 
 class HealthResponse(BaseModel):

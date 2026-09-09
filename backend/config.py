@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
     conversation_history_turns: int = 3
 
-    # 学习路径课外搜索：arXiv（无 key）+ Tavily（需 TAVILY_API_KEY）；结果再过主机白名单
+    # 课外搜索 / 薄弱点归纳（进阶资料推荐等学伴能力共用）
     learning_path_search_timeout_seconds: float = 15.0
     learning_path_recent_questions: int = 20
     learning_path_block_keywords: str = ""

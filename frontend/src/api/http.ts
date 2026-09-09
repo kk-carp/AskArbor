@@ -46,7 +46,6 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
     path === "/ocr" ||
     path === "/documents" ||
     path === "/code-ingest" ||
-    path === "/learning-path" ||
     path === "/advanced-resources/plan" ||
     path === "/advanced-resources/plan/stream"
       ? 180_000

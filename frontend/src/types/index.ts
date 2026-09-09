@@ -158,16 +158,6 @@ export interface ExternalRecommendation {
   snippet: string;
 }
 
-/** GET /learning-path：无 hit，搜索失败用 error_type；默认读缓存 */
-export interface LearningPathResponse {
-  weak_points: string[];
-  course: CourseRecommendation[];
-  external: ExternalRecommendation[];
-  error_type: "search_unavailable" | "search_timeout" | null;
-  message: string | null;
-  from_cache: boolean;
-}
-
 export interface AdvancedResourceStep {
   tool: string;
   ok: boolean;
@@ -184,6 +174,7 @@ export interface AdvancedResourcesPlanResponse {
   error_type: "search_unavailable" | "search_timeout" | null;
   message: string | null;
   report: AdvancedResourcesReport | null;
+  from_cache: boolean;
 }
 
 export interface AdvancedResourcesWeakPointDetail {

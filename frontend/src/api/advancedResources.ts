@@ -11,11 +11,14 @@ export function fetchAdvancedResourceTools(): Promise<AdvancedResourcesToolsResp
 }
 
 export function planAdvancedResources(
-  weakPoints?: string[],
+  options: { weakPoints?: string[]; refresh?: boolean } = {},
 ): Promise<AdvancedResourcesPlanResponse> {
   return requestJson<AdvancedResourcesPlanResponse>("/advanced-resources/plan", {
     method: "POST",
-    body: JSON.stringify(weakPoints?.length ? { weak_points: weakPoints } : {}),
+    body: JSON.stringify({
+      ...(options.weakPoints?.length ? { weak_points: options.weakPoints } : {}),
+      refresh: Boolean(options.refresh),
+    }),
   });
 }
 
@@ -50,13 +53,16 @@ function dispatchSseEvent(
 /** POST /advanced-resources/plan/stream — SSE：step / final / error / done */
 export async function planAdvancedResourcesStream(
   handlers: PlanStreamHandlers,
-  weakPoints?: string[],
+  options: { weakPoints?: string[]; refresh?: boolean } = {},
 ): Promise<void> {
   const response = await fetch("/advanced-resources/plan/stream", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify(weakPoints?.length ? { weak_points: weakPoints } : {}),
+    body: JSON.stringify({
+      ...(options.weakPoints?.length ? { weak_points: options.weakPoints } : {}),
+      refresh: Boolean(options.refresh),
+    }),
     signal: handlers.signal ?? AbortSignal.timeout(180_000),
   });
 

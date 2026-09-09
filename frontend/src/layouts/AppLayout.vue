@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ChatDotRound, Collection, Expand, FolderOpened, Fold, Reading, Tickets, UserFilled } from "@element-plus/icons-vue";
+import { ChatDotRound, Collection, Expand, FolderOpened, Fold, Tickets, UserFilled } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import BrandMark from "@/components/BrandMark.vue";
 import { useUserStore } from "@/stores/user";
@@ -23,7 +23,6 @@ const isQa = computed(() => route.name === "qa");
 const menuItems = computed(() => {
   const items = [{ index: "/qa", title: "问答", icon: ChatDotRound }];
   if (canUseCompanion.value) {
-    items.push({ index: "/study-path", title: "学习路径", icon: Reading });
     items.push({ index: "/advanced-resources", title: "进阶资料推荐", icon: Collection });
   }
   items.push({ index: "/work-orders", title: "工单", icon: Tickets });

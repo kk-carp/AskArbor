@@ -17,5 +17,5 @@ def companion_spaces(allowed_spaces: list[str]) -> list[str]:
 def require_companion_spaces(allowed_spaces: list[str]) -> list[str]:
     spaces = companion_spaces(allowed_spaces)
     if not spaces:
-        raise CompanionForbiddenError("当前账号不能使用学伴学习路径")
+        raise CompanionForbiddenError("当前账号不能使用学伴功能")
     return spaces

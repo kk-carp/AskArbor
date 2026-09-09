@@ -112,7 +112,7 @@ def fetch_search_text(url: str) -> str:
         with httpx.Client(timeout=timeout, follow_redirects=False) as client:
             response = client.get(
                 url,
-                headers={"User-Agent": "FDE-learning-path/1.0"},
+                headers={"User-Agent": "FDE-open-resource/1.0"},
             )
     except httpx.TimeoutException as exc:
         raise SearchTimeoutError("课外搜索超时") from exc
@@ -189,7 +189,7 @@ def _post_tavily_json(body: dict, *, api_key: str, timeout: float) -> object:
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
-                    "User-Agent": "FDE-learning-path/1.0",
+                    "User-Agent": "FDE-open-resource/1.0",
                 },
                 json=body,
             )

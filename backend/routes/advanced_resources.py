@@ -18,7 +18,12 @@ from backend.schemas import (
     AdvancedResourceToolSpec,
     AdvancedResourceStep,
 )
-from backend.services.advanced_resources_service import list_tools, plan_recommendations, run_named_tool
+from backend.services.advanced_resources_service import (
+    get_advanced_resources,
+    get_cached_advanced_resources,
+    list_tools,
+    run_named_tool,
+)
 from backend.services.auth_service import load_auth_context
 
 router = APIRouter(tags=["advanced-resources"])
@@ -43,6 +48,7 @@ def _plan_response(result) -> AdvancedResourcesPlanResponse:
         error_type=result.error_type,
         message=result.message,
         report=report,
+        from_cache=bool(getattr(result, "from_cache", False)),
     )
 
 
@@ -99,9 +105,10 @@ async def advanced_resources_plan(
     context = _require_user(request)
     body = payload or AdvancedResourcesPlanRequest()
     try:
-        result = plan_recommendations(
+        result = get_advanced_resources(
             user_id=context.user.id,
             allowed_spaces=context.allowed_spaces,
+            refresh=body.refresh,
             weak_points=body.weak_points,
         )
     except CompanionForbiddenError as exc:
@@ -132,6 +139,7 @@ async def advanced_resources_plan_stream(
     user_id = context.user.id
     spaces = list(context.allowed_spaces)
     weak_points = body.weak_points
+    refresh = bool(body.refresh)
 
     def event_gen() -> Iterator[str]:
         try:
@@ -141,13 +149,23 @@ async def advanced_resources_plan_stream(
             yield _sse_pack("done", {})
             return
 
+        # 缓存命中：直接返回 final（含历史 steps），不假装重跑工具
+        if not refresh:
+            cached = get_cached_advanced_resources(user_id)
+            if cached is not None:
+                response = _plan_response(cached)
+                yield _sse_pack("final", response.model_dump(mode="json"))
+                yield _sse_pack("done", {})
+                return
+
         q: Queue = Queue()
 
         def worker() -> None:
             try:
-                result = plan_recommendations(
+                result = get_advanced_resources(
                     user_id=user_id,
                     allowed_spaces=spaces,
+                    refresh=True,
                     weak_points=weak_points,
                     on_step=lambda step: q.put(("step", step)),
                 )

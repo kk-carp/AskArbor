@@ -22,12 +22,6 @@ const router = createRouter({
           meta: { title: "问答" },
         },
         {
-          path: "study-path",
-          name: "study-path",
-          component: () => import("@/views/LearningPathView.vue"),
-          meta: { title: "学习路径", requireCompanion: true },
-        },
-        {
           path: "advanced-resources",
           name: "advanced-resources",
           component: () => import("@/views/AdvancedResourcesView.vue"),

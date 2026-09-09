@@ -13,9 +13,10 @@ import { describeRequestError } from "@/utils/errors";
 const loading = ref(false);
 const steps = ref<AdvancedResourceStep[]>([]);
 const report = ref<AdvancedResourcesReport | null>(null);
-const meta = ref<Pick<AdvancedResourcesPlanResponse, "weak_points" | "course" | "external" | "error_type" | "message"> | null>(
-  null,
-);
+const meta = ref<Pick<
+  AdvancedResourcesPlanResponse,
+  "weak_points" | "course" | "external" | "error_type" | "message" | "from_cache"
+> | null>(null);
 const trajectoryOpen = ref(true);
 let abort: AbortController | null = null;
 
@@ -68,13 +69,15 @@ function stepDetail(step: AdvancedResourceStep): string {
   return step.message || "";
 }
 
-async function runPlan(): Promise<void> {
+async function runPlan(refresh = false): Promise<void> {
   abort?.abort();
   abort = new AbortController();
   loading.value = true;
-  steps.value = [];
-  report.value = null;
-  meta.value = null;
+  if (refresh) {
+    steps.value = [];
+    report.value = null;
+    meta.value = null;
+  }
   trajectoryOpen.value = true;
 
   try {
@@ -92,9 +95,13 @@ async function runPlan(): Promise<void> {
             external: payload.external,
             error_type: payload.error_type,
             message: payload.message,
+            from_cache: payload.from_cache,
           };
           if (payload.steps?.length) {
             steps.value = payload.steps;
+          }
+          if (payload.from_cache) {
+            trajectoryOpen.value = false;
           }
         },
         onError: (payload) => {
@@ -104,6 +111,7 @@ async function runPlan(): Promise<void> {
           ElMessage.error(`${described.title}：${described.detail}`);
         },
       },
+      { refresh },
     );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -117,7 +125,7 @@ async function runPlan(): Promise<void> {
 }
 
 onMounted(() => {
-  void runPlan();
+  void runPlan(false);
 });
 
 onUnmounted(() => {
@@ -132,8 +140,10 @@ onUnmounted(() => {
         <h1>进阶资料推荐</h1>
         <p class="hint">根据近期提问生成学习诊断与进阶建议；资料均来自课程库与白名单课外检索。</p>
       </div>
-      <el-button type="primary" :loading="loading" @click="runPlan">重新生成</el-button>
+      <el-button type="primary" :loading="loading" @click="runPlan(true)">重新生成</el-button>
     </header>
+
+    <p v-if="meta?.from_cache" class="cache-hint">当前为缓存结果；点击「重新生成」可按最新提问更新。</p>
 
     <el-alert
       v-if="searchAlert"
@@ -278,6 +288,12 @@ h1 {
   color: var(--color-muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.cache-hint {
+  margin: -8px 0 16px;
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .alert {

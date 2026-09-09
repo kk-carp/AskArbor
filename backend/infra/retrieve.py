@@ -221,7 +221,7 @@ def run_retrieval(
     query_vector: list[float],
     allowed_spaces: list[str],
 ) -> list[RetrievedChunk]:
-    """混合召回 → 可选重排 → 阈值门控；供问答与学习路径共用。"""
+    """混合召回 → 可选重排 → 阈值门控；供问答与进阶资料推荐共用。"""
     if not allowed_spaces:
         return []
 

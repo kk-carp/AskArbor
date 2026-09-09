@@ -20,7 +20,7 @@ from backend.infra.open_resource import (
 )
 from backend.infra.retrieve import run_retrieval
 from backend.services.conversation_service import list_recent_user_questions
-from backend.services.learning_path_service import _summarize_weak_points
+from backend.services.weak_points import summarize_weak_points
 
 _audit = logging.getLogger("backend.audit")
 _URL_RE = re.compile(r"https?://", re.I)
@@ -85,7 +85,7 @@ def tool_summarize_weak_points(*, user_id: str, limit: int | None = None) -> Too
             data={"weak_points": []},
             message="提问记录不足",
         )
-    weak_points = _summarize_weak_points(questions)[: settings.advanced_resources_max_topics]
+    weak_points = summarize_weak_points(questions)[: settings.advanced_resources_max_topics]
     return ToolResult(
         tool="summarize_weak_points",
         ok=True,

@@ -233,6 +233,103 @@ def test_plan_refines_then_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "compose_report" in seen_steps
 
 
+def test_plan_always_composes_when_search_budget_full(monkeypatch: pytest.MonkeyPatch) -> None:
+    """检索步数打满时仍必须产出 report（此前会显示「成文未完成」）。"""
+    monkeypatch.setattr(svc, "require_companion_spaces", lambda spaces: ["student"])
+    monkeypatch.setattr(svc.settings, "advanced_resources_max_steps", 4)
+    monkeypatch.setattr(svc.settings, "advanced_resources_max_refine", 0)
+    monkeypatch.setattr(svc.settings, "advanced_resources_max_topics", 3)
+    monkeypatch.setattr(svc, "list_recent_user_questions", lambda **_k: ["q1", "q2"])
+
+    doc_id = str(uuid4())
+
+    def _run(name, args, *, user_id):
+        if name == "search_course":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={
+                    "query": (args or {}).get("query"),
+                    "candidates": [
+                        {
+                            "id": doc_id,
+                            "document_id": doc_id,
+                            "title": "讲义",
+                            "path": "a.md",
+                            "snippet": "dp",
+                            "score": 0.9,
+                            "space_id": "student",
+                        }
+                    ],
+                    "candidate_count": 1,
+                },
+            )
+        if name == "judge_relevance":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={
+                    "keep_ids": [doc_id],
+                    "keep": [
+                        {
+                            "id": doc_id,
+                            "document_id": doc_id,
+                            "title": "讲义",
+                            "path": "a.md",
+                            "snippet": "dp",
+                            "score": 0.9,
+                            "space_id": "student",
+                        }
+                    ],
+                    "need_refine": False,
+                    "refined_query": None,
+                    "reason": "ok",
+                },
+            )
+        if name == "search_external":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={"queries": ["x"], "candidates": [], "candidate_count": 0},
+            )
+        if name == "analyze_capability":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={"strengths": [], "gaps": ["A"], "level_summary": "需补强"},
+            )
+        if name == "compose_report":
+            return ToolResult(
+                tool=name,
+                ok=True,
+                data={
+                    "report": {
+                        "title": "建议",
+                        "capability_analysis": "需补强",
+                        "weak_points_detail": [{"topic": "A", "why": "提问多"}],
+                        "materials": [
+                            {"ref_id": doc_id, "reason": "相关", "how_to_use": "读"}
+                        ],
+                        "next_steps": ["读讲义"],
+                    },
+                    "fallback": False,
+                },
+            )
+        raise AssertionError(name)
+
+    monkeypatch.setattr(svc, "run_tool", _run)
+
+    result = svc.plan_recommendations(
+        user_id="u1",
+        allowed_spaces=["student"],
+        weak_points=["主题A", "主题B", "主题C"],
+    )
+    assert result.report is not None
+    assert result.report["title"] == "建议"
+    tools_seen = [s["tool"] for s in result.steps]
+    assert "compose_report" in tools_seen
+
+
 def test_hydrate_report_drops_unknown_ref() -> None:
     catalog = [
         {
@@ -289,3 +386,61 @@ def test_search_course_ignores_company(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.ok is True
     assert all(item["space_id"] == "student" for item in result.data["candidates"])
     assert len(result.data["candidates"]) == 1
+
+
+def test_get_advanced_resources_uses_cache_until_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.schemas import ExternalRecommendation
+
+    svc.clear_advanced_resources_cache()
+    builds = {"count": 0}
+    monkeypatch.setattr(svc, "require_companion_spaces", lambda spaces: spaces)
+
+    def _plan(**_kwargs):
+        builds["count"] += 1
+        return svc.PlanResult(
+            weak_points=["动态规划"],
+            course=[],
+            external=[
+                ExternalRecommendation(
+                    title=f"Paper-{builds['count']}",
+                    url=f"https://arxiv.org/abs/1706.0376{builds['count']}",
+                    host="arxiv.org",
+                    kind="paper",
+                    snippet="",
+                )
+            ],
+            report={"title": f"报告-{builds['count']}", "materials": []},
+            from_cache=False,
+        )
+
+    monkeypatch.setattr(svc, "plan_recommendations", _plan)
+
+    first = svc.get_advanced_resources(user_id="u1", allowed_spaces=["student"], refresh=False)
+    second = svc.get_advanced_resources(user_id="u1", allowed_spaces=["student"], refresh=False)
+    peeked = svc.get_cached_advanced_resources("u1")
+    refreshed = svc.get_advanced_resources(user_id="u1", allowed_spaces=["student"], refresh=True)
+
+    assert builds["count"] == 2
+    assert first.from_cache is False
+    assert second.from_cache is True
+    assert peeked is not None and peeked.from_cache is True
+    assert second.external[0].url == first.external[0].url
+    assert refreshed.from_cache is False
+    assert refreshed.external[0].url != first.external[0].url
+
+
+def test_empty_plan_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    svc.clear_advanced_resources_cache()
+    builds = {"count": 0}
+    monkeypatch.setattr(svc, "require_companion_spaces", lambda spaces: spaces)
+
+    def _plan(**_kwargs):
+        builds["count"] += 1
+        return svc.PlanResult(weak_points=[], course=[], external=[], report=None)
+
+    monkeypatch.setattr(svc, "plan_recommendations", _plan)
+
+    svc.get_advanced_resources(user_id="u1", allowed_spaces=["student"], refresh=False)
+    svc.get_advanced_resources(user_id="u1", allowed_spaces=["student"], refresh=False)
+    assert builds["count"] == 2
+    assert svc.get_cached_advanced_resources("u1") is None
