@@ -17,7 +17,7 @@ const meta = ref<Pick<
   AdvancedResourcesPlanResponse,
   "weak_points" | "course" | "external" | "error_type" | "message" | "from_cache"
 > | null>(null);
-const trajectoryOpen = ref(true);
+const trajectoryOpen = ref(false);
 let abort: AbortController | null = null;
 
 const searchAlert = computed(() => {
@@ -78,7 +78,7 @@ async function runPlan(refresh = false): Promise<void> {
     report.value = null;
     meta.value = null;
   }
-  trajectoryOpen.value = true;
+  trajectoryOpen.value = false;
 
   try {
     await planAdvancedResourcesStream(
@@ -99,9 +99,6 @@ async function runPlan(refresh = false): Promise<void> {
           };
           if (payload.steps?.length) {
             steps.value = payload.steps;
-          }
-          if (payload.from_cache) {
-            trajectoryOpen.value = false;
           }
         },
         onError: (payload) => {
@@ -160,9 +157,12 @@ onUnmounted(() => {
       :title="meta.message"
     />
 
-    <section class="trajectory" :class="{ busy: loading }">
+    <section class="trajectory" :class="{ busy: loading, open: trajectoryOpen }">
       <button type="button" class="traj-toggle" @click="trajectoryOpen = !trajectoryOpen">
-        <span>调用轨迹{{ loading ? "（生成中…）" : "" }}</span>
+        <span class="traj-label">
+          <span class="traj-chevron" aria-hidden="true">{{ trajectoryOpen ? "▾" : "▸" }}</span>
+          调用轨迹{{ loading ? "（生成中…）" : "" }}
+        </span>
         <span class="traj-count">{{ steps.length }} 步</span>
       </button>
       <ol v-show="trajectoryOpen" class="steps">
@@ -301,10 +301,11 @@ h1 {
 }
 
 .trajectory {
-  margin-bottom: 24px;
-  border-top: 1px solid var(--color-line);
-  border-bottom: 1px solid var(--color-line);
-  padding: 8px 0;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-card) 70%, transparent);
+  padding: 0 14px;
 }
 
 .trajectory.busy {
@@ -318,11 +319,24 @@ h1 {
   align-items: center;
   border: 0;
   background: transparent;
-  padding: 8px 0;
+  padding: 12px 0;
   cursor: pointer;
   font: inherit;
   font-weight: 600;
   color: var(--color-ink);
+}
+
+.traj-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.traj-chevron {
+  display: inline-block;
+  width: 1em;
+  color: var(--color-muted);
+  font-weight: 500;
 }
 
 .traj-count {
@@ -333,8 +347,9 @@ h1 {
 
 .steps {
   margin: 0;
-  padding: 0 0 8px 18px;
+  padding: 12px 0 14px 18px;
   font-size: 13px;
+  border-top: 1px solid var(--color-line);
 }
 
 .steps li + li {
@@ -354,6 +369,14 @@ h1 {
   color: var(--color-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.article {
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 28px 28px 8px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
 }
 
 .article-title {
@@ -440,5 +463,9 @@ h1 {
 
 .fallback {
   margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 20px 24px;
 }
 </style>
