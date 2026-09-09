@@ -32,6 +32,44 @@ def _patch_client(monkeypatch, content: str, usage: object | None = None) -> dic
     return captured
 
 
+def _patch_stream_client(
+    monkeypatch,
+    deltas: list[str],
+    usage: object | None = None,
+) -> dict[str, object]:
+    captured: dict[str, object] = {}
+
+    class _Delta:
+        def __init__(self, content: str | None):
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content: str | None):
+            self.delta = _Delta(content)
+
+    class _Chunk:
+        def __init__(self, content: str | None = None, chunk_usage: object | None = None):
+            self.choices = [_Choice(content)] if content is not None else []
+            self.usage = chunk_usage
+
+    class _Completions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            chunks = [_Chunk(text) for text in deltas]
+            if usage is not None:
+                chunks.append(_Chunk(content=None, chunk_usage=usage))
+            return iter(chunks)
+
+    class _Client:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(generate, "OpenAI", _Client)
+    monkeypatch.setattr(generate.settings, "chat_api_key", "test-key")
+    monkeypatch.setattr(generate.settings, "chat_model", "deepseek-chat")
+    return captured
+
+
 def test_generate_answer_builds_multiturn_messages(monkeypatch) -> None:
     captured = _patch_client(monkeypatch, "ok")
     chunks = [
@@ -103,3 +141,44 @@ def test_generate_answer_requires_chunks_or_screenshot() -> None:
 
     with pytest.raises(ValueError, match="不能同时为空"):
         generate.generate_answer("hi", [])
+
+
+def test_generate_answer_stream_yields_deltas_then_result(monkeypatch) -> None:
+    usage = type("U", (), {"prompt_tokens": 40, "completion_tokens": 7})()
+    captured = _patch_stream_client(monkeypatch, ["知", "识库"], usage=usage)
+    chunks = [
+        RetrievedChunk(
+            content="周五截止",
+            score=0.9,
+            document_id=uuid4(),
+            title="作业.md",
+            space_id="student",
+        )
+    ]
+
+    items = list(generate.generate_answer_stream("截止日期", chunks))
+
+    assert captured["stream"] is True
+    assert items[:-1] == ["知", "识库"]
+    assert isinstance(items[-1], generate.ChatResult)
+    assert items[-1].text == "知识库"
+    assert items[-1].usage.prompt_tokens == 40
+    assert items[-1].usage.completion_tokens == 7
+
+
+def test_generate_answer_stream_raises_on_empty_deltas(monkeypatch) -> None:
+    import pytest
+
+    _patch_stream_client(monkeypatch, [])
+    chunks = [
+        RetrievedChunk(
+            content="周五截止",
+            score=0.9,
+            document_id=uuid4(),
+            title="作业.md",
+            space_id="student",
+        )
+    ]
+
+    with pytest.raises(generate.UpstreamServiceError, match="空响应"):
+        list(generate.generate_answer_stream("截止日期", chunks))

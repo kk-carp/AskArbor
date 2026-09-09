@@ -30,8 +30,10 @@ function readDetail(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-function isLoginRequest(path: string): boolean {
-  return path === "/login" || path.endsWith("/login");
+export function notifyUnauthorizedIfNeeded(status: number, path: string): void {
+  if (status === 401 && !isLoginRequest(path)) {
+    unauthorizedHandler?.();
+  }
 }
 
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -43,6 +45,7 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
 
   const timeoutMs =
     path === "/ask" ||
+    path === "/ask/stream" ||
     path === "/ocr" ||
     path === "/documents" ||
     path === "/code-ingest" ||
@@ -68,9 +71,7 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
 
   if (!response.ok) {
     const detail = readDetail(payload, `请求失败（HTTP ${response.status}）`);
-    if (response.status === 401 && !isLoginRequest(path)) {
-      unauthorizedHandler?.();
-    }
+    notifyUnauthorizedIfNeeded(response.status, path);
     throw new ApiError(response.status, detail);
   }
 

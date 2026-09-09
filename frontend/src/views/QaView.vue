@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from "vue";
-import { askQuestion, askWithImage, listConversations, listMessages } from "@/api/qa";
+import { askQuestionStream, askWithImage, listConversations, listMessages } from "@/api/qa";
 import AskComposer from "@/components/qa/AskComposer.vue";
 import ConversationList from "@/components/qa/ConversationList.vue";
 import MessagePane from "@/components/qa/MessagePane.vue";
 import { useAskMetaStore } from "@/stores/askMeta";
 import { useMessageImageStore } from "@/stores/messageImages";
-import type { ConversationItem, MessageAskMeta, MessageItem } from "@/types";
+import type { AskResponse, ConversationItem, MessageAskMeta, MessageItem, SourceItem } from "@/types";
 import { describeRequestError } from "@/utils/errors";
 
 const askMetaStore = useAskMetaStore();
@@ -19,6 +19,8 @@ const messageLoading = ref(false);
 const asking = ref(false);
 const pendingQuestion = ref("");
 const pendingImageUrl = ref<string | null>(null);
+const pendingAnswer = ref("");
+const pendingSources = ref<SourceItem[]>([]);
 const requestError = ref<{ title: string; detail: string } | null>(null);
 const messageWrap = ref<HTMLElement | null>(null);
 
@@ -78,6 +80,40 @@ function startNewConversation(): void {
   requestError.value = null;
 }
 
+async function applyAskResult(result: AskResponse, localImageUrl: string | null): Promise<void> {
+  if (result.error_type === "ocr_failed") {
+    requestError.value = {
+      title: "图片识别失败",
+      detail: result.answer || "请换更清晰的截图或改用文字提问。这不是知识库未命中。",
+    };
+    return;
+  }
+
+  const conversationId = result.conversation_id;
+  if (!conversationId) {
+    requestError.value = { title: "问答异常", detail: "响应未返回 conversation_id" };
+    return;
+  }
+  currentConversationId.value = conversationId;
+  await refreshConversations();
+  await loadMessages(conversationId, true);
+  const lastAssistant = [...messages.value].reverse().find((item) => item.role === "assistant");
+  const lastUser = [...messages.value].reverse().find((item) => item.role === "user");
+  if (lastAssistant) {
+    askMetaStore.save(conversationId, lastAssistant.id, {
+      hit: result.hit,
+      ticket_id: result.ticket_id,
+      owner: result.owner,
+      sources: result.sources,
+      error_type: result.error_type ?? null,
+    });
+  }
+  if (lastUser && localImageUrl) {
+    messageImageStore.save(conversationId, lastUser.id, localImageUrl);
+    pendingImageUrl.value = null;
+  }
+}
+
 async function handleAsk(payload: string | { question: string; image: File | null }): Promise<void> {
   const data =
     typeof payload === "string" ? { question: payload, image: null as File | null } : payload;
@@ -91,6 +127,8 @@ async function handleAsk(payload: string | { question: string; image: File | nul
   asking.value = true;
   requestError.value = null;
   pendingQuestion.value = image ? question || "截图提问" : question;
+  pendingAnswer.value = "";
+  pendingSources.value = [];
   if (pendingImageUrl.value) {
     URL.revokeObjectURL(pendingImageUrl.value);
     pendingImageUrl.value = null;
@@ -99,46 +137,45 @@ async function handleAsk(payload: string | { question: string; image: File | nul
   pendingImageUrl.value = localImageUrl;
   await scrollToBottom();
   try {
-    const result = image
-      ? await askWithImage(image, question || null, currentConversationId.value)
-      : await askQuestion(question, currentConversationId.value);
-
-    if (result.error_type === "ocr_failed") {
-      requestError.value = {
-        title: "图片识别失败",
-        detail: result.answer || "请换更清晰的截图或改用文字提问。这不是知识库未命中。",
-      };
+    if (image) {
+      const result = await askWithImage(image, question || null, currentConversationId.value);
+      await applyAskResult(result, localImageUrl);
       return;
     }
 
-    const conversationId = result.conversation_id;
-    if (!conversationId) {
-      requestError.value = { title: "问答异常", detail: "响应未返回 conversation_id" };
+    let finalResult: AskResponse | null = null;
+    await askQuestionStream(question, currentConversationId.value, {
+      onMeta: (meta) => {
+        pendingSources.value = meta.sources || [];
+        if (meta.conversation_id) {
+          currentConversationId.value = meta.conversation_id;
+        }
+      },
+      onDelta: (chunk) => {
+        pendingAnswer.value += chunk;
+        void scrollToBottom();
+      },
+      onFinal: (result) => {
+        finalResult = result;
+        pendingAnswer.value = result.answer || pendingAnswer.value;
+        if (result.sources?.length) {
+          pendingSources.value = result.sources;
+        }
+      },
+    });
+    const completed = finalResult;
+    if (!completed) {
+      requestError.value = { title: "问答异常", detail: "流式响应未返回结果" };
       return;
     }
-    currentConversationId.value = conversationId;
-    await refreshConversations();
-    await loadMessages(conversationId, true);
-    const lastAssistant = [...messages.value].reverse().find((item) => item.role === "assistant");
-    const lastUser = [...messages.value].reverse().find((item) => item.role === "user");
-    if (lastAssistant) {
-      askMetaStore.save(conversationId, lastAssistant.id, {
-        hit: result.hit,
-        ticket_id: result.ticket_id,
-        owner: result.owner,
-        sources: result.sources,
-        error_type: result.error_type ?? null,
-      });
-    }
-    if (lastUser && localImageUrl) {
-      messageImageStore.save(conversationId, lastUser.id, localImageUrl);
-      pendingImageUrl.value = null;
-    }
+    await applyAskResult(completed, null);
   } catch (error) {
     requestError.value = describeRequestError(error);
   } finally {
     asking.value = false;
     pendingQuestion.value = "";
+    pendingAnswer.value = "";
+    pendingSources.value = [];
     if (pendingImageUrl.value) {
       URL.revokeObjectURL(pendingImageUrl.value);
       pendingImageUrl.value = null;
@@ -188,6 +225,8 @@ onMounted(async () => {
           :asking="asking"
           :pending-question="pendingQuestion"
           :pending-image-url="pendingImageUrl"
+          :pending-answer="pendingAnswer"
+          :pending-sources="pendingSources"
         />
       </div>
       <div class="composer-dock">

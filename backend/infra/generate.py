@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from openai import APIConnectionError, APIStatusError, OpenAI
@@ -111,14 +112,13 @@ def complete_chat(
     return ChatResult(text=answer, usage=_usage_from_response(response))
 
 
-def generate_answer(
+def _build_messages(
     question: str,
     chunks: list[RetrievedChunk],
     history: list[tuple[str, str]] | None = None,
     *,
     screenshot_text: str | None = None,
-) -> ChatResult:
-    """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮依据在最后一条。"""
+) -> list[dict[str, str]]:
     shot = (screenshot_text or "").strip() or None
     if not chunks and not shot:
         raise ValueError("chunks 与 screenshot_text 不能同时为空")
@@ -147,4 +147,71 @@ def generate_answer(
             ),
         }
     )
-    return complete_chat(messages)
+    return messages
+
+
+def stream_chat(
+    messages: list[dict[str, str]],
+    *,
+    temperature: float = 0.1,
+) -> Iterator[str | ChatResult]:
+    """流式调用 DeepSeek：先产出文本增量，最后一条为 ChatResult。"""
+    client = OpenAI(
+        base_url=settings.chat_base_url,
+        api_key=settings.chat_api_key,
+        timeout=30.0,
+    )
+    try:
+        stream = client.chat.completions.create(
+            model=settings.chat_model,
+            temperature=temperature,
+            messages=messages,
+            stream=True,
+        )
+        pieces: list[str] = []
+        usage = ZERO_USAGE
+        for chunk in stream:
+            chunk_usage = getattr(chunk, "usage", None)
+            if chunk_usage is not None:
+                usage = _usage_from_response(chunk)
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            piece = getattr(delta, "content", None) if delta is not None else None
+            if piece:
+                pieces.append(piece)
+                yield piece
+    except (APIConnectionError, APIStatusError, TimeoutError) as exc:
+        raise UpstreamServiceError("上游模型调用失败") from exc
+    except Exception as exc:
+        raise UpstreamServiceError("上游模型调用失败") from exc
+
+    answer = "".join(pieces).strip()
+    if not answer:
+        raise UpstreamServiceError("上游模型返回空响应")
+    yield ChatResult(text=answer, usage=usage)
+
+
+def generate_answer(
+    question: str,
+    chunks: list[RetrievedChunk],
+    history: list[tuple[str, str]] | None = None,
+    *,
+    screenshot_text: str | None = None,
+) -> ChatResult:
+    """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮依据在最后一条。"""
+    return complete_chat(_build_messages(question, chunks, history, screenshot_text=screenshot_text))
+
+
+def generate_answer_stream(
+    question: str,
+    chunks: list[RetrievedChunk],
+    history: list[tuple[str, str]] | None = None,
+    *,
+    screenshot_text: str | None = None,
+) -> Iterator[str | ChatResult]:
+    """流式生成答案：yield 文本增量，最后 yield ChatResult。"""
+    yield from stream_chat(
+        _build_messages(question, chunks, history, screenshot_text=screenshot_text)
+    )

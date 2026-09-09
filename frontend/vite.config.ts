@@ -24,6 +24,7 @@ function isApiWrite(url: string): boolean {
     url === "/login" ||
     url === "/logout" ||
     url === "/ask" ||
+    url === "/ask/stream" ||
     url === "/ocr" ||
     url === "/documents" ||
     url.startsWith("/documents/") ||

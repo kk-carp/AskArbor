@@ -3,7 +3,7 @@ import { computed } from "vue";
 import AskMetaBanner from "@/components/qa/AskMetaBanner.vue";
 import SourceList from "@/components/qa/SourceList.vue";
 import BrandMark from "@/components/BrandMark.vue";
-import type { MessageAskMeta, MessageItem } from "@/types";
+import type { MessageAskMeta, MessageItem, SourceItem } from "@/types";
 import { renderMarkdown } from "@/utils/markdown";
 
 const props = defineProps<{
@@ -13,6 +13,8 @@ const props = defineProps<{
   asking?: boolean;
   pendingQuestion?: string;
   pendingImageUrl?: string | null;
+  pendingAnswer?: string;
+  pendingSources?: SourceItem[];
 }>();
 
 const OCR_MARKER = "【截图文字】";
@@ -78,9 +80,11 @@ const showEmpty = computed(() => !props.messages.length && !props.asking);
     <div v-if="asking" class="turn assistant">
       <div class="assistant-row">
         <div class="assistant-label">助手</div>
-        <div class="typing-dots" aria-label="正在作答">
+        <div v-if="pendingAnswer" class="md-body" v-html="assistantHtml(pendingAnswer)" />
+        <div v-else class="typing-dots" aria-label="正在作答">
           <span /><span /><span />
         </div>
+        <SourceList v-if="pendingSources?.length" :sources="pendingSources" />
       </div>
     </div>
   </div>
