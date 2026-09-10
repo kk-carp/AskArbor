@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
 import BrandMark from "@/components/BrandMark.vue";
+import DisclaimerNote from "@/components/DisclaimerNote.vue";
 import { useUserStore } from "@/stores/user";
 import { describeRequestError } from "@/utils/errors";
 
@@ -93,6 +94,7 @@ async function handleSubmit(): Promise<void> {
           {{ item.label }}
         </button>
       </div>
+      <DisclaimerNote class="login-disclaimer" />
     </div>
   </div>
 </template>
@@ -167,5 +169,9 @@ h1 {
   border-color: var(--color-primary);
   background: var(--color-primary-soft);
   color: var(--color-primary);
+}
+
+.login-disclaimer {
+  margin-top: 16px;
 }
 </style>

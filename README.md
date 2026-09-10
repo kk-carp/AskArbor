@@ -252,6 +252,8 @@ python .\scripts\run_phase1_eval.py --mode live
 python .\scripts\run_phase1_eval.py --mode oracle
 ```
 
+发版前（不是课上作业）可加 `--gate`：隔离失败或未命中却调模型时命令失败，并额外跑员工问课程的越权样本。
+
 作业说明见 `docs/评估与安全作业.md`。`/ask` 命中时响应带 `llm_called`、`prompt_tokens`、`completion_tokens`（来自 DeepSeek usage）；拒答为 false / 0 / 0。问答页不展示这些字段。
 
 输出文件：

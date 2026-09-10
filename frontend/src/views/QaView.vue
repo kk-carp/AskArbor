@@ -3,6 +3,7 @@ import { nextTick, onMounted, ref } from "vue";
 import { askQuestionStream, askWithImage, listConversations, listMessages } from "@/api/qa";
 import AskComposer from "@/components/qa/AskComposer.vue";
 import ConversationList from "@/components/qa/ConversationList.vue";
+import DisclaimerNote from "@/components/DisclaimerNote.vue";
 import MessagePane from "@/components/qa/MessagePane.vue";
 import { useAskMetaStore } from "@/stores/askMeta";
 import { useMessageImageStore } from "@/stores/messageImages";
@@ -231,6 +232,7 @@ onMounted(async () => {
       </div>
       <div class="composer-dock">
         <AskComposer :loading="asking" @submit="handleAsk" />
+        <DisclaimerNote class="qa-disclaimer" />
       </div>
     </section>
   </div>
@@ -281,6 +283,11 @@ onMounted(async () => {
   padding: 8px 20px 20px;
   background: var(--color-card);
   border-radius: var(--radius-md);
+}
+
+.qa-disclaimer {
+  margin-top: 8px;
+  text-align: center;
 }
 
 @media (max-width: 960px) {

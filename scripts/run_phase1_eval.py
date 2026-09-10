@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -108,6 +109,16 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("DEMO_PASSWORD", "demo1234"),
         help="Password for seeded demo accounts.",
     )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="发版门禁：隔离未通过或未命中却调模型则非 0 退出。",
+    )
+    parser.add_argument(
+        "--gate-extra-file",
+        default="docs/samples/eval/gate_extra_isolation.jsonl",
+        help="仅 --gate 时追加的越权样本；不计入课上 12 条作业集。",
+    )
     return parser.parse_args()
 
 
@@ -184,6 +195,17 @@ def load_cases(case_file: Path) -> list[EvalCase]:
     if not cases:
         raise ValueError("No evaluation cases were loaded.")
     return cases
+
+
+def merge_cases(base: list[EvalCase], extra: list[EvalCase]) -> list[EvalCase]:
+    """按 id 去重，保留作业集原有条目。"""
+    merged = list(base)
+    seen = {case.id for case in merged}
+    for case in extra:
+        if case.id not in seen:
+            merged.append(case)
+            seen.add(case.id)
+    return merged
 
 
 def wait_for_health_ready(
@@ -270,10 +292,12 @@ def login_as_teaching_for_upload(
 
 
 def check_isolation(role: str, source_spaces: list[str]) -> bool:
-    """学员来源不得出现 company。"""
-    if role != "student":
-        return True
-    return "company" not in source_spaces
+    """学员来源不得出现 company；员工来源不得出现 student。"""
+    if role == "student":
+        return "company" not in source_spaces
+    if role == "employee":
+        return "student" not in source_spaces
+    return True
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -595,7 +619,38 @@ def build_markdown(
     return "\n".join(lines) + "\n"
 
 
-def main() -> None:
+@dataclass(frozen=True)
+class GateVerdict:
+    passed: bool
+    failures: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+
+def evaluate_gate(results: list[CaseResult]) -> GateVerdict:
+    """隔离必须 100%；期望未命中不得调模型。命中率偏低只警告。"""
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    isolation_failed = [item.id for item in results if not item.isolation_ok]
+    if isolation_failed:
+        failures.append("隔离未通过: " + ", ".join(isolation_failed))
+
+    leaked_llm = [item.id for item in results if (not item.expected_hit) and item.llm_called]
+    if leaked_llm:
+        failures.append("期望未命中却调用了模型: " + ", ".join(leaked_llm))
+
+    expected_hits = [item for item in results if item.expected_hit]
+    if expected_hits:
+        hit_on_expected = ratio(sum(1 for item in expected_hits if item.actual_hit), len(expected_hits))
+        if hit_on_expected < 0.5:
+            warnings.append(
+                f"期望命中样本的实际命中率 {hit_on_expected:.0%} 偏低，不挡发版"
+            )
+
+    return GateVerdict(passed=not failures, failures=tuple(failures), warnings=tuple(warnings))
+
+
+def main() -> int:
     args = parse_args()
 
     api_base = args.api_base.rstrip("/")
@@ -606,6 +661,9 @@ def main() -> None:
     output_md = Path(args.output_md)
 
     cases = load_cases(case_file)
+    extra_file = Path(args.gate_extra_file)
+    if args.gate:
+        cases = merge_cases(cases, load_cases(extra_file))
 
     if args.mode == "live":
         with make_http_client(args.timeout_sec, api_base) as client:
@@ -643,6 +701,7 @@ def main() -> None:
         "api_base": api_base,
         "case_file": str(case_file),
         "sample_count": len(results),
+        "gate": bool(args.gate),
         "metrics": summary,
         "results": [asdict(item) for item in results],
     }
@@ -668,6 +727,17 @@ def main() -> None:
     print(f"json={output_json}")
     print(f"markdown={output_md}")
 
+    if args.gate:
+        verdict = evaluate_gate(results)
+        for warning in verdict.warnings:
+            print(f"gate warning: {warning}", flush=True)
+        if not verdict.passed:
+            for failure in verdict.failures:
+                print(f"gate failed: {failure}", flush=True)
+            return 2
+        print("gate passed.")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
