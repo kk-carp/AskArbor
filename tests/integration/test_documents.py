@@ -82,6 +82,68 @@ def test_upload_allowed_for_teaching(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["chunk_count"] == 2
 
 
+def test_upload_duplicate_returns_409(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services.ingest_service import DuplicateDocumentError
+
+    user = AuthUser("u-t", "teaching_demo", "employee", True)
+    existing_id = uuid4()
+
+    def _duplicate(**_kwargs):
+        raise DuplicateDocumentError(
+            existing_id=str(existing_id),
+            existing_title="course.md",
+            space_id="student",
+        )
+
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
+    )
+    monkeypatch.setattr("backend.routes.documents.ingest_document", _duplicate)
+    with _client(monkeypatch) as client:
+        response = client.post(
+            "/documents",
+            data={"space": "student"},
+            files={"file": ("course.md", b"hello", "text/markdown")},
+        )
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["code"] == "duplicate_document"
+    assert detail["existing_id"] == str(existing_id)
+    assert detail["existing_title"] == "course.md"
+    assert "知识库未命中" not in str(detail)
+
+
+def test_upload_replace_passes_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = AuthUser("u-t", "teaching_demo", "employee", True)
+    doc_id = uuid4()
+    seen: dict[str, bool] = {}
+
+    def _ingest(*, file, space_id, replace=False):
+        seen["replace"] = replace
+        return DocumentResult(
+            id=doc_id,
+            title="course.md",
+            space_id=space_id,
+            status=DocumentStatus.ready.value,
+            chunk_count=1,
+        )
+
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
+    )
+    monkeypatch.setattr("backend.routes.documents.ingest_document", _ingest)
+    with _client(monkeypatch) as client:
+        response = client.post(
+            "/documents",
+            data={"space": "student", "replace": "true"},
+            files={"file": ("course.md", b"hello", "text/markdown")},
+        )
+    assert response.status_code == 201
+    assert seen["replace"] is True
+
+
 def test_list_and_offline_documents(monkeypatch: pytest.MonkeyPatch) -> None:
     user = AuthUser("u-t", "teaching_demo", "employee", True)
     doc_id = uuid4()
@@ -122,6 +184,46 @@ def test_list_and_offline_documents(monkeypatch: pytest.MonkeyPatch) -> None:
         offline = client.post(f"/documents/{doc_id}/offline")
         assert offline.status_code == 200
         assert offline.json()["status"] == "offline"
+
+
+def test_delete_offline_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = AuthUser("u-t", "teaching_demo", "employee", True)
+    doc_id = uuid4()
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
+    )
+    monkeypatch.setattr("backend.routes.documents.delete_offline_document", lambda _document_id: None)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/documents/{doc_id}")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_delete_document_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("backend.routes.documents.load_auth_context", lambda _request: None)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/documents/{uuid4()}")
+    assert response.status_code == 401
+
+
+def test_delete_ready_document_returns_400(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services.document_admin_service import DocumentDeleteError
+
+    user = AuthUser("u-t", "teaching_demo", "employee", True)
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
+    )
+
+    def _reject(_document_id: str) -> None:
+        raise DocumentDeleteError(400, "只能删除已下线的文档")
+
+    monkeypatch.setattr("backend.routes.documents.delete_offline_document", _reject)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/documents/{uuid4()}")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "只能删除已下线的文档"
 
 
 def test_download_file_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:

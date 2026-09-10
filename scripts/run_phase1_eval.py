@@ -249,6 +249,10 @@ def upload_sample_doc(
                     data={"space": space},
                     files={"file": (path.name, content, "text/markdown")},
                 )
+            if response.status_code == 409:
+                detail = response.json().get("detail")
+                if isinstance(detail, dict) and detail.get("code") == "duplicate_document":
+                    return
             response.raise_for_status()
             payload = response.json()
             if payload.get("status") != "ready":

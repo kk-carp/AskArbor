@@ -17,6 +17,12 @@ function readDetail(payload: unknown, fallback: string): string {
   if (typeof detail === "string") {
     return detail;
   }
+  if (typeof detail === "object" && detail !== null && "message" in detail) {
+    const message = (detail as { message: unknown }).message;
+    if (typeof message === "string" && message) {
+      return message;
+    }
+  }
   if (Array.isArray(detail)) {
     return detail
       .map((item) => {
@@ -72,7 +78,7 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
   if (!response.ok) {
     const detail = readDetail(payload, `请求失败（HTTP ${response.status}）`);
     notifyUnauthorizedIfNeeded(response.status, path);
-    throw new ApiError(response.status, detail);
+    throw new ApiError(response.status, detail, payload);
   }
 
   return payload as T;

@@ -232,15 +232,17 @@ export interface MetricsSnapshot {
   completion_tokens_total: number;
 }
 
-/** 业务错误：与 400/401/403/413/429/502/503 语义对齐 */
+/** 业务错误：与 400/401/403/409/413/429/502/503 语义对齐 */
 export class ApiError extends Error {
   status: number;
   detail: string;
+  body: unknown;
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, body: unknown = null) {
     super(detail);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+    this.body = body;
   }
 }

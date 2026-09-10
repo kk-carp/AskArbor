@@ -9,9 +9,14 @@ from backend.config import settings
 from backend.errors import ServiceUnavailableError
 from backend.schemas import DocumentResponse
 from backend.services.auth_service import can_manage_documents, load_auth_context
-from backend.services.document_admin_service import list_documents, set_document_offline
+from backend.services.document_admin_service import (
+    DocumentDeleteError,
+    delete_offline_document,
+    list_documents,
+    set_document_offline,
+)
 from backend.services.document_file_service import DocumentFileError, open_document_file
-from backend.services.ingest_service import ingest_document
+from backend.services.ingest_service import DuplicateDocumentError, ingest_document
 
 router = APIRouter(tags=["documents"])
 
@@ -71,11 +76,15 @@ async def upload_document(
     request: Request,
     space: str = Form(),
     file: UploadFile = File(),
+    replace: str = Form(""),
 ) -> DocumentResponse:
     """接收 multipart 文件与空间参数并入库；需登录且有管理权限。"""
     _require_document_manager(request)
+    replace_existing = replace.strip().lower() in {"1", "true", "yes"}
     try:
-        result = ingest_document(file=file, space_id=space)
+        result = ingest_document(file=file, space_id=space, replace=replace_existing)
+    except DuplicateDocumentError as exc:
+        raise HTTPException(status_code=409, detail=exc.to_detail()) from exc
     except ValueError as exc:
         detail = str(exc)
         if "exceeds max size" in detail:
@@ -117,6 +126,19 @@ async def offline_document(document_id: str, request: Request) -> DocumentRespon
         chunk_count=result.chunk_count,
         error=result.error,
     )
+
+
+@router.delete("/documents/{document_id}")
+async def delete_document(document_id: str, request: Request) -> dict[str, bool]:
+    """删除已下线文档；ready 文档须先下线。"""
+    _require_document_manager(request)
+    try:
+        delete_offline_document(document_id)
+    except DocumentDeleteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 @router.get("/documents/{document_id}/file")

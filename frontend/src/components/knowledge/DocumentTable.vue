@@ -14,6 +14,7 @@ const emit = defineEmits<{
   "update:page": [value: number];
   "update:pageSize": [value: number];
   offline: [row: DocumentItem];
+  remove: [row: DocumentItem];
 }>();
 
 function statusType(status: DocumentItem["status"]): "success" | "info" | "warning" | "danger" {
@@ -49,7 +50,7 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
       <el-table-column label="文档 ID" width="120">
         <template #default="{ row }">{{ shortId(row.id) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.status !== 'offline'"
@@ -59,7 +60,14 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
           >
             下线
           </el-button>
-          <span v-else class="muted">已下线</span>
+          <el-button
+            v-else
+            type="danger"
+            link
+            @click="emit('remove', row)"
+          >
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -83,10 +91,5 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
-}
-
-.muted {
-  color: var(--color-muted);
-  font-size: 13px;
 }
 </style>

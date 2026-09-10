@@ -1,5 +1,41 @@
 import { ApiError } from "@/types";
 
+export interface DuplicateDocumentInfo {
+  existingId: string;
+  existingTitle: string;
+  spaceId: string;
+}
+
+function readDetailObject(error: ApiError): Record<string, unknown> | null {
+  const payload = error.body;
+  if (typeof payload !== "object" || payload === null || !("detail" in payload)) {
+    return null;
+  }
+  const detail = (payload as { detail: unknown }).detail;
+  if (typeof detail !== "object" || detail === null) {
+    return null;
+  }
+  return detail as Record<string, unknown>;
+}
+
+/** 同空间相同内容；409 不是知识库未命中。 */
+export function duplicateDocumentInfo(error: unknown): DuplicateDocumentInfo | null {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return null;
+  }
+  const detail = readDetailObject(error);
+  if (detail?.code !== "duplicate_document") {
+    return null;
+  }
+  const existingId = typeof detail.existing_id === "string" ? detail.existing_id : "";
+  const existingTitle = typeof detail.existing_title === "string" ? detail.existing_title : "";
+  const spaceId = typeof detail.space_id === "string" ? detail.space_id : "";
+  if (!existingId) {
+    return null;
+  }
+  return { existingId, existingTitle, spaceId };
+}
+
 /** 把系统故障与知识库未命中区分开，禁止用拒答文案覆盖 502/503 */
 export function describeRequestError(error: unknown): { title: string; detail: string } {
   if (error instanceof ApiError) {
@@ -20,6 +56,9 @@ export function describeRequestError(error: unknown): { title: string; detail: s
         title: "请求过于频繁",
         detail: error.detail || "请稍后再试。这不是知识库未命中。",
       };
+    }
+    if (error.status === 409) {
+      return { title: "文档重复", detail: error.detail || "该空间已有相同内容的文档" };
     }
     if (error.status === 413) {
       return { title: "文件过大", detail: error.detail };

@@ -57,6 +57,34 @@ function Ask {
         -WebSession $session
 }
 
+function Upload-SampleOrSkipDuplicate {
+    param(
+        [object]$Session,
+        [string]$Space,
+        [string]$FilePath,
+        [string]$Label
+    )
+    try {
+        $upload = Invoke-RestMethod `
+            -Method Post `
+            -Uri "$ApiBase/documents" `
+            -WebSession $Session `
+            -Form @{ space = $Space; file = Get-Item -LiteralPath $FilePath }
+        Assert-True ($upload.status -eq "ready") "$Label upload status is not ready."
+        Assert-True ($upload.chunk_count -gt 0) "$Label upload produced no chunks."
+        return
+    } catch {
+        $statusCode = 0
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        }
+        if ($statusCode -eq 409) {
+            return
+        }
+        throw
+    }
+}
+
 $repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
 Push-Location $repoRoot
 
@@ -111,21 +139,8 @@ try {
         -Body $adminLogin `
         -SessionVariable uploadSession | Out-Null
 
-    $studentUpload = Invoke-RestMethod `
-        -Method Post `
-        -Uri "$ApiBase/documents" `
-        -WebSession $uploadSession `
-        -Form @{ space = "student"; file = Get-Item -LiteralPath $StudentDoc }
-    Assert-True ($studentUpload.status -eq "ready") "Student upload status is not ready."
-    Assert-True ($studentUpload.chunk_count -gt 0) "Student upload produced no chunks."
-
-    $companyUpload = Invoke-RestMethod `
-        -Method Post `
-        -Uri "$ApiBase/documents" `
-        -WebSession $uploadSession `
-        -Form @{ space = "company"; file = Get-Item -LiteralPath $CompanyDoc }
-    Assert-True ($companyUpload.status -eq "ready") "Company upload status is not ready."
-    Assert-True ($companyUpload.chunk_count -gt 0) "Company upload produced no chunks."
+    Upload-SampleOrSkipDuplicate -Session $uploadSession -Space "student" -FilePath $StudentDoc -Label "Student"
+    Upload-SampleOrSkipDuplicate -Session $uploadSession -Space "company" -FilePath $CompanyDoc -Label "Company"
 
     $studentHit = Ask -Username "student_demo" -Question "When is the assignment submission deadline?"
     Assert-True ($studentHit.hit -eq $true) "Student should hit course document."

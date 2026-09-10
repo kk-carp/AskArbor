@@ -128,7 +128,7 @@ DEMO_PASSWORD=demo1234
 | --- | --- | --- | --- |
 | `student_demo` | 学员 | `student` | 班主任绑定到 `teaching_demo` |
 | `employee_demo` | 内部员工 | `company` | 不可上传文档 |
-| `teaching_demo` | 教学岗 | `student`、`company` | 可上传/下线文档、配置主题负责人 |
+| `teaching_demo` | 教学岗 | `student`、`company` | 可上传/下线文档、删除已下线文档、配置主题负责人 |
 
 本迭代用户仅种子账号，无开放注册接口。
 
@@ -265,7 +265,7 @@ python .\scripts\run_phase1_eval.py --mode oracle
 
 - 首次启动会下载并加载 `BAAI/bge-m3`，耗时会明显更长。
 - 问答改为登录态：`student_demo` 只能检索 `student`，`employee_demo` 只能检索 `company`，`teaching_demo` 可检索两者。
-- 文档上传/下线仅教学岗（或管理员）；`failed`/`offline` 文档不可检索。
+- 文档上传/下线仅教学岗（或管理员）；已下线文档可再删除（切片与上传文件一并去掉）。`failed`/`offline` 文档不可检索。
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
 - 问答审计日志（`backend.audit`）：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。不含问题全文。访问日志带 `X-Request-ID`。

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { listDocuments, offlineDocument, uploadCourseZip, uploadDocument } from "@/api/documents";
+import { listDocuments, deleteDocument, offlineDocument, uploadCourseZip, uploadDocument } from "@/api/documents";
 import CodePackUploadDialog from "@/components/knowledge/CodePackUploadDialog.vue";
 import DocumentSearchForm, { type DocumentSearchModel } from "@/components/knowledge/DocumentSearchForm.vue";
 import DocumentTable from "@/components/knowledge/DocumentTable.vue";
 import DocumentUploadDialog from "@/components/knowledge/DocumentUploadDialog.vue";
 import type { DocumentItem, SpaceId } from "@/types";
-import { describeRequestError } from "@/utils/errors";
+import { describeRequestError, duplicateDocumentInfo } from "@/utils/errors";
 
 const allRows = ref<DocumentItem[]>([]);
 const loading = ref(false);
@@ -72,16 +72,51 @@ function handleReset(): void {
   handleSearch();
 }
 
+async function askReplaceDuplicate(fileName: string, existingTitle: string): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(
+      `「${fileName}」与已入库文档「${existingTitle}」内容相同。不上传则保留旧文档；下线后再传会让旧文档不可检索。`,
+      "文档重复",
+      {
+        type: "warning",
+        confirmButtonText: "下线旧文档再传",
+        cancelButtonText: "不上传",
+        distinguishCancelAndClose: true,
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function handleUpload(payload: { space: SpaceId; files: File[] }): Promise<void> {
   uploading.value = true;
   const succeeded: string[] = [];
   const failed: string[] = [];
+  const skipped: string[] = [];
   try {
     for (const file of payload.files) {
       try {
         const created = await uploadDocument(payload.space, file);
         succeeded.push(`${created.title}（${created.status}）`);
       } catch (error) {
+        const duplicate = duplicateDocumentInfo(error);
+        if (duplicate) {
+          const replace = await askReplaceDuplicate(file.name, duplicate.existingTitle || file.name);
+          if (!replace) {
+            skipped.push(file.name);
+            continue;
+          }
+          try {
+            const created = await uploadDocument(payload.space, file, { replace: true });
+            succeeded.push(`${created.title}（已替换旧文档）`);
+          } catch (retryError) {
+            const described = describeRequestError(retryError);
+            failed.push(`${file.name}：${described.detail}`);
+          }
+          continue;
+        }
         const described = describeRequestError(error);
         failed.push(`${file.name}：${described.detail}`);
       }
@@ -90,6 +125,9 @@ async function handleUpload(payload: { space: SpaceId; files: File[] }): Promise
       ElMessage.success(`上传成功：${succeeded[0]}`);
     } else if (succeeded.length > 1) {
       ElMessage.success(`已上传 ${succeeded.length} 个文档`);
+    }
+    if (skipped.length) {
+      ElMessage.info(`已跳过重复文件 ${skipped.length} 个：${skipped.join("、")}`);
     }
     if (failed.length) {
       ElMessage.error(`上传失败 ${failed.length} 个：${failed.join("；")}`);
@@ -143,6 +181,30 @@ async function handleOffline(row: DocumentItem): Promise<void> {
   }
 }
 
+async function handleDelete(row: DocumentItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除已下线文档「${row.title}」？将同时删除切片和上传文件，且不可恢复。`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await deleteDocument(row.id);
+    ElMessage.success("已删除");
+    await loadDocuments();
+  } catch (error) {
+    const described = describeRequestError(error);
+    ElMessage.error(`${described.title}：${described.detail}`);
+  }
+}
+
 onMounted(() => {
   void loadDocuments();
 });
@@ -150,7 +212,7 @@ onMounted(() => {
 
 <template>
   <div class="page-panel">
-    <p class="page-caption">仅教学岗可上传与下线。课程代码包固定写入课程空间；失败条目会显示在列表中。</p>
+    <p class="page-caption">仅教学岗可上传、下线；已下线文档可删除。课程代码包固定写入课程空间；失败条目会显示在列表中。</p>
     <DocumentSearchForm
       :model="query"
       @search="handleSearch"
@@ -167,6 +229,7 @@ onMounted(() => {
       @update:page="page = $event"
       @update:page-size="pageSize = $event; page = 1"
       @offline="handleOffline"
+      @remove="handleDelete"
     />
     <DocumentUploadDialog
       v-model:visible="uploadVisible"

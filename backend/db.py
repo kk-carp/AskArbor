@@ -43,6 +43,21 @@ def _ensure_user_position_key(current_engine: Engine) -> None:
         connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS position_key VARCHAR(64)"))
 
 
+def _ensure_document_content_hash(current_engine: Engine) -> None:
+    """已有库补齐 documents.content_hash；同空间 ready/processing 不得重复哈希。"""
+    if current_engine.dialect.name != "postgresql":
+        return
+    with current_engine.begin() as connection:
+        connection.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)"))
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_space_hash_active "
+                "ON documents (space_id, content_hash) "
+                "WHERE status IN ('ready', 'processing') AND content_hash IS NOT NULL"
+            )
+        )
+
+
 def _ensure_chunk_content_tsv(current_engine: Engine) -> None:
     """词法检索列 + GIN；对 content_tsv 为空的行按 jieba 分词回填。"""
     if current_engine.dialect.name != "postgresql":
@@ -97,6 +112,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=current_engine)
     _ensure_chunk_source_columns(current_engine)
     _ensure_user_position_key(current_engine)
+    _ensure_document_content_hash(current_engine)
     _ensure_chunk_content_tsv(current_engine)
 
 
