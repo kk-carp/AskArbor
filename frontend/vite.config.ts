@@ -9,7 +9,9 @@ function isApiGet(url: string): boolean {
   return (
     url === "/me" ||
     url === "/health" ||
+    url === "/metrics" ||
     url === "/documents" ||
+    (url.startsWith("/documents/") && url.endsWith("/file")) ||
     url === "/conversations" ||
     url.startsWith("/conversations/") ||
     url === "/tickets" ||
@@ -49,7 +51,7 @@ export default defineConfig({
     port: 5173,
     host: "127.0.0.1",
     proxy: {
-      "^/(login|logout|me|ask|ocr|documents|code-ingest|conversations|tickets|topic_owners|advanced-resources|health)(/.*)?$": {
+      "^/(login|logout|me|ask|ocr|documents|code-ingest|conversations|tickets|topic_owners|advanced-resources|health|metrics)(/.*)?$": {
         target: apiTarget,
         changeOrigin: true,
         bypass(req: IncomingMessage) {

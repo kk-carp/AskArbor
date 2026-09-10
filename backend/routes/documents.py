@@ -3,12 +3,14 @@
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from backend.config import settings
 from backend.errors import ServiceUnavailableError
 from backend.schemas import DocumentResponse
 from backend.services.auth_service import can_manage_documents, load_auth_context
 from backend.services.document_admin_service import list_documents, set_document_offline
+from backend.services.document_file_service import DocumentFileError, open_document_file
 from backend.services.ingest_service import ingest_document
 
 router = APIRouter(tags=["documents"])
@@ -115,3 +117,18 @@ async def offline_document(document_id: str, request: Request) -> DocumentRespon
         chunk_count=result.chunk_count,
         error=result.error,
     )
+
+
+@router.get("/documents/{document_id}/file")
+async def download_document_file(document_id: str, request: Request) -> FileResponse:
+    """按空间权限打开原文；学员/员工只能下载自己能检索的空间。"""
+    context = load_auth_context(request)
+    if context is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    try:
+        path, download_name = open_document_file(document_id, context.allowed_spaces)
+    except DocumentFileError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return FileResponse(path, filename=download_name)

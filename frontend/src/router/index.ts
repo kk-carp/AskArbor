@@ -45,6 +45,12 @@ const router = createRouter({
           component: () => import("@/views/TopicOwnersView.vue"),
           meta: { title: "主题负责人", requireManage: true },
         },
+        {
+          path: "metrics",
+          name: "metrics",
+          component: () => import("@/views/MetricsView.vue"),
+          meta: { title: "运行概况", requireTeaching: true },
+        },
       ],
     },
     { path: "/:pathMatch(.*)*", redirect: "/qa" },
@@ -69,6 +75,9 @@ router.beforeEach(async (to) => {
     return { name: "qa" };
   }
   if (to.meta.requireCompanion && !userStore.canUseCompanion) {
+    return { name: "qa" };
+  }
+  if (to.meta.requireTeaching && !userStore.canViewMetrics) {
     return { name: "qa" };
   }
   return true;

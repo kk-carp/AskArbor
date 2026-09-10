@@ -9,6 +9,10 @@ const props = defineProps<{
 
 const countLabel = computed(() => `参考 ${props.sources.length} 篇资料`);
 
+function fileHref(item: SourceItem): string {
+  return `/documents/${item.document_id}/file`;
+}
+
 function formatScore(score: number | null | undefined): string {
   if (typeof score !== "number" || Number.isNaN(score)) {
     return "";
@@ -22,7 +26,9 @@ function formatScore(score: number | null | undefined): string {
     <summary>{{ countLabel }}</summary>
     <ul>
       <li v-for="item in sources" :key="`${item.document_id}-${item.path || ''}-${item.score ?? ''}`">
-        <span class="source-title">{{ item.title }}</span>
+        <a class="source-title" :href="fileHref(item)" target="_blank" rel="noopener noreferrer">
+          {{ item.title }}
+        </a>
         <span class="source-space">{{ spaceLabel(item.space_id) }}</span>
         <span v-if="formatScore(item.score)" class="source-score">相似度 {{ formatScore(item.score) }}</span>
         <span v-if="item.path" class="source-path">{{ item.path }}</span>
@@ -86,8 +92,13 @@ li {
 }
 
 .source-title {
-  color: var(--color-ink);
+  color: var(--color-primary);
   font-weight: 600;
+  text-decoration: none;
+}
+
+.source-title:hover {
+  text-decoration: underline;
 }
 
 .source-space {

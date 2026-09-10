@@ -218,6 +218,20 @@ export interface AdvancedResourcesToolsResponse {
   tools: AdvancedResourceToolSpec[];
 }
 
+/** GET /metrics：当前进程启动后累计，重启清零 */
+export interface MetricsSnapshot {
+  ask_total: number;
+  ask_hit: number;
+  ask_miss: number;
+  ask_error_502: number;
+  ask_error_503: number;
+  ask_429: number;
+  ask_screenshot_only: number;
+  llm_calls: number;
+  prompt_tokens_total: number;
+  completion_tokens_total: number;
+}
+
 /** 业务错误：与 400/401/403/413/429/502/503 语义对齐 */
 export class ApiError extends Error {
   status: number;

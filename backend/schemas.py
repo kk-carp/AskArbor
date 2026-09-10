@@ -246,3 +246,18 @@ class HealthResponse(BaseModel):
     api: bool
     database: bool
     embedding_loaded: bool
+
+
+class MetricsResponse(BaseModel):
+    """当前进程启动后累计；重启清零。不含问题正文。"""
+
+    ask_total: int
+    ask_hit: int
+    ask_miss: int
+    ask_error_502: int
+    ask_error_503: int
+    ask_429: int
+    ask_screenshot_only: int
+    llm_calls: int
+    prompt_tokens_total: int
+    completion_tokens_total: int

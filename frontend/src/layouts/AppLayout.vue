@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ChatDotRound, Collection, Expand, FolderOpened, Fold, Tickets, UserFilled } from "@element-plus/icons-vue";
+import { ChatDotRound, Collection, DataAnalysis, Expand, FolderOpened, Fold, Tickets, UserFilled } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import BrandMark from "@/components/BrandMark.vue";
 import { useUserStore } from "@/stores/user";
@@ -15,6 +15,7 @@ const userStore = useUserStore();
 
 const user = computed(() => userStore.currentUser);
 const canManage = computed(() => userStore.canManageDocuments);
+const canViewMetrics = computed(() => userStore.canViewMetrics);
 const canUseCompanion = computed(() => userStore.canUseCompanion);
 const collapsed = ref(readCollapsed());
 const asideWidth = computed(() => (collapsed.value ? "72px" : "228px"));
@@ -29,6 +30,9 @@ const menuItems = computed(() => {
   if (canManage.value) {
     items.push({ index: "/knowledge", title: "文档管理", icon: FolderOpened });
     items.push({ index: "/topic-owners", title: "主题负责人", icon: UserFilled });
+  }
+  if (canViewMetrics.value) {
+    items.push({ index: "/metrics", title: "运行概况", icon: DataAnalysis });
   }
   return items;
 });

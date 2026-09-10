@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
+from backend.infra.metrics import record_429
 from backend.infra.rate_limit import RATE_LIMIT_DETAIL, allow_ask
 from backend.schemas import AskRequest, AskResponse
 from backend.services.auth_service import load_auth_context
@@ -44,6 +45,7 @@ async def ask(payload: AskRequest, request: Request) -> AskResponse:
         if context is None:
             raise HTTPException(status_code=401, detail="未登录")
         if not allow_ask(context.user.id):
+            record_429()
             raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
         result = answer_question(
             allowed_spaces=context.allowed_spaces,
@@ -79,6 +81,7 @@ async def ask_stream(payload: AskRequest, request: Request) -> StreamingResponse
     if context is None:
         raise HTTPException(status_code=401, detail="未登录")
     if not allow_ask(context.user.id):
+        record_429()
         raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
     allowed_spaces = list(context.allowed_spaces)

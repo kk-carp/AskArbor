@@ -122,3 +122,47 @@ def test_list_and_offline_documents(monkeypatch: pytest.MonkeyPatch) -> None:
         offline = client.post(f"/documents/{doc_id}/offline")
         assert offline.status_code == 200
         assert offline.json()["status"] == "offline"
+
+
+def test_download_file_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("backend.routes.documents.load_auth_context", lambda _request: None)
+    with _client(monkeypatch) as client:
+        response = client.get(f"/documents/{uuid4()}/file")
+    assert response.status_code == 401
+
+
+def test_student_cannot_download_company_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services.document_file_service import DocumentFileError
+
+    user = AuthUser("u1", "student_demo", "student", False, advisor_id="adv")
+
+    def _forbid(_document_id: str, _spaces: list[str]):
+        raise DocumentFileError(403, "没有权限查看该文档")
+
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+    monkeypatch.setattr("backend.routes.documents.open_document_file", _forbid)
+    with _client(monkeypatch) as client:
+        response = client.get(f"/documents/{uuid4()}/file")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "没有权限查看该文档"
+
+
+def test_student_can_download_student_file(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    user = AuthUser("u1", "student_demo", "student", False, advisor_id="adv")
+    target = tmp_path / "course.md"
+    target.write_text("课件正文", encoding="utf-8")
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+    monkeypatch.setattr(
+        "backend.routes.documents.open_document_file",
+        lambda _doc_id, _spaces: (target, "course.md"),
+    )
+    with _client(monkeypatch) as client:
+        response = client.get(f"/documents/{uuid4()}/file")
+    assert response.status_code == 200
+    assert "课件正文".encode("utf-8") in response.content

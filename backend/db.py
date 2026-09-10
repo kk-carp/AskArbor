@@ -119,6 +119,37 @@ def init_db() -> None:
         seed_topic_owners(session)
         session.commit()
 
+    purge_expired_on_startup()
+
+
+def purge_expired_on_startup() -> None:
+    """启动时按配置清理一次过期会话/已回复工单；失败只记日志，不阻断启动。"""
+    if SessionLocal is None:
+        return
+    if settings.data_retention_days <= 0:
+        return
+    try:
+        from datetime import datetime, timezone
+
+        from backend.services.retention_service import purge_expired
+
+        with SessionLocal() as session:
+            result = purge_expired(
+                session,
+                now=datetime.now(timezone.utc),
+                retention_days=settings.data_retention_days,
+            )
+            session.commit()
+        if result.conversations or result.tickets:
+            _log.info(
+                "purged expired data conversations=%s tickets=%s retention_days=%s",
+                result.conversations,
+                result.tickets,
+                settings.data_retention_days,
+            )
+    except Exception:
+        _log.exception("expired data purge failed")
+
 
 def get_session() -> Generator[Session, None, None]:
     """为请求或服务调用提供数据库会话。"""

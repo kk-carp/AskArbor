@@ -22,6 +22,7 @@ from backend.routes import (
     conversations,
     documents,
     health,
+    metrics,
     ocr,
     tickets,
     topic_owners,
@@ -90,6 +91,7 @@ app.add_middleware(
 app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router)
+app.include_router(metrics.router)
 app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(code_ingest.router)

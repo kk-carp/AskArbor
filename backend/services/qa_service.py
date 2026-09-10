@@ -9,6 +9,7 @@ from backend import db
 from backend.config import settings  # noqa: F401 — 测试通过 qa_service.settings 注入阈值
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
+from backend.infra.metrics import record_ask_outcome
 from backend.infra.request_context import get_request_id
 from backend.infra.generate import ChatResult, generate_answer, generate_answer_stream
 from backend.infra.retrieve import RetrievedChunk, run_retrieval
@@ -96,8 +97,17 @@ def _write_audit(
     hit: bool | None,
     document_ids: list[str],
     error_type: str,
+    llm_called: bool = False,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
 ) -> None:
     """最小审计：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型。不含密钥与正文。"""
+    record_ask_outcome(
+        error_type=error_type,
+        llm_called=llm_called,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+    )
     if user_id is None:
         return
     _audit_logger.info(
@@ -398,6 +408,9 @@ def iter_answer_events(
                 hit=True,
                 document_ids=[str(item.document_id) for item in sources],
                 error_type="hit",
+                llm_called=True,
+                prompt_tokens=generated.usage.prompt_tokens,
+                completion_tokens=generated.usage.completion_tokens,
             )
             yield _emit_final(
                 AskResult(
@@ -421,6 +434,9 @@ def iter_answer_events(
             hit=False,
             document_ids=[],
             error_type=SCREENSHOT_ONLY,
+            llm_called=True,
+            prompt_tokens=generated.usage.prompt_tokens,
+            completion_tokens=generated.usage.completion_tokens,
         )
         yield _emit_final(
             AskResult(
@@ -581,6 +597,9 @@ def answer_question(
                 hit=True,
                 document_ids=[str(item.document_id) for item in sources],
                 error_type="hit",
+                llm_called=True,
+                prompt_tokens=generated.usage.prompt_tokens,
+                completion_tokens=generated.usage.completion_tokens,
             )
             return AskResult(
                 answer=answer,
@@ -601,6 +620,9 @@ def answer_question(
             hit=False,
             document_ids=[],
             error_type=SCREENSHOT_ONLY,
+            llm_called=True,
+            prompt_tokens=generated.usage.prompt_tokens,
+            completion_tokens=generated.usage.completion_tokens,
         )
         return AskResult(
             answer=answer,

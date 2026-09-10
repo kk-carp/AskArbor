@@ -134,6 +134,14 @@ DEMO_PASSWORD=demo1234
 
 启动时还会幂等写入样例 `topic_owners`（请假 / 报销 / IT / 考勤）。联系方式为 `example.local` 演示值，不是真实人员；已有记录不会被覆盖。
 
+默认保留最近 90 天的会话；已回复且超过该天数的工单会在启动时清理一次。未回复工单会保留。也可手动执行：
+
+```powershell
+python -m backend.scripts.purge_expired
+```
+
+教学岗可在「运行概况」查看当前进程启动后的问答次数（命中/拒答/502 等），重启后数字清零。课上评测作业仍用手跑 `scripts/run_phase1_eval.py`。
+
 ## Docker Compose 整包（API + Postgres）
 
 密钥从本机 `.env` 注入容器，**不要写进镜像**。`DATABASE_URL` 由 Compose 指向 `postgres` 服务，不会使用 `.env` 里的 `localhost`。
@@ -259,4 +267,5 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
 - 问答审计日志（`backend.audit`）：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。不含问题全文。访问日志带 `X-Request-ID`。
+- 来源标题可打开原文：`GET /documents/{id}/file` 会再校验该用户是否有该空间权限。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。

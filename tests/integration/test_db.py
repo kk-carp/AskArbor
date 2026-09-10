@@ -122,6 +122,7 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
     monkeypatch.setattr(db, "_ensure_chunk_content_tsv", lambda _engine: None)
     monkeypatch.setattr("backend.seed.demo_users.seed_demo_users", lambda _session: seeded.__setitem__("demo", True))
     monkeypatch.setattr("backend.seed.topic_owners.seed_topic_owners", lambda _session: None)
+    monkeypatch.setattr(db, "purge_expired_on_startup", lambda: None)
     db.SessionLocal = lambda: _FakeSessionContext()
 
     db.init_db()
@@ -188,6 +189,7 @@ def test_init_db_skips_demo_users_in_prod(monkeypatch: pytest.MonkeyPatch) -> No
         "backend.seed.topic_owners.seed_topic_owners",
         lambda _session: called.__setitem__("owners", True),
     )
+    monkeypatch.setattr(db, "purge_expired_on_startup", lambda: None)
     db.SessionLocal = lambda: _FakeSessionContext()
 
     db.init_db()

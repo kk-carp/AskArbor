@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     ask_rate_max: int = 60
     ask_rate_window_seconds: int = 60
 
+    # 会话与已回复工单保留天数；<=0 表示不自动清理
+    data_retention_days: int = 90
+
     # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
     conversation_history_turns: int = 3
 
