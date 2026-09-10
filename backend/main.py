@@ -8,11 +8,12 @@ import time
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
-from backend.config import settings
+from backend.config import assert_safe_for_environment, session_https_only, settings
 from backend.db import init_db
 from backend.infra.embed import load_model
 from backend.infra.open_resource import init_open_resource_search_tools
 from backend.infra.rerank import load_reranker
+from backend.infra.request_context import RequestIdMiddleware
 from backend.routes import (
     advanced_resources,
     ask,
@@ -40,6 +41,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     def _done(name: str, t0: float) -> None:
         _log.info("startup [%s] done (%.1fs)", name, time.perf_counter() - t0)
+
+    assert_safe_for_environment()
 
     t0 = time.perf_counter()
     _step("1/4 init_db")
@@ -80,9 +83,11 @@ app.add_middleware(
     secret_key=settings.secret_key,
     session_cookie=settings.session_cookie_name,
     same_site="lax",
-    https_only=False,
+    https_only=session_https_only(),
     max_age=60 * 60 * 24 * 7,
 )
+# 后添加的中间件在更外层：保证所有请求都有编号。
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router)
 app.include_router(auth.router)

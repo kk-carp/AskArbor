@@ -218,7 +218,7 @@ export interface AdvancedResourcesToolsResponse {
   tools: AdvancedResourceToolSpec[];
 }
 
-/** 业务错误：与 V1 的 400/401/403/413/502/503 语义对齐 */
+/** 业务错误：与 400/401/403/413/429/502/503 语义对齐 */
 export class ApiError extends Error {
   status: number;
   detail: string;

@@ -63,6 +63,7 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
     metadata_calls: list[object] = []
     added_space_ids: list[str] = []
     commit_calls = 0
+    seeded = {"demo": False}
 
     class _FakeConnection:
         def execute(self, stmt: object) -> None:
@@ -89,6 +90,16 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
         def scalars(self, _query: object) -> _ScalarResult:
             return _ScalarResult()
 
+        def execute(self, _stmt: object, _params: object = None) -> object:
+            class _Result:
+                def mappings(self) -> object:
+                    return self
+
+                def all(self) -> list:
+                    return []
+
+            return _Result()
+
         def add(self, item: object) -> None:
             added_space_ids.append(getattr(item, "id"))
 
@@ -103,9 +114,13 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
         def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
             return False
 
+    monkeypatch.setattr("backend.config.settings.app_env", "local")
     monkeypatch.setattr(db, "init_engine", lambda: fake_engine)
     monkeypatch.setattr(db.Base.metadata, "create_all", lambda *, bind: metadata_calls.append(bind))
-    monkeypatch.setattr("backend.seed.demo_users.seed_demo_users", lambda _session: None)
+    monkeypatch.setattr(db, "_ensure_chunk_source_columns", lambda _engine: None)
+    monkeypatch.setattr(db, "_ensure_user_position_key", lambda _engine: None)
+    monkeypatch.setattr(db, "_ensure_chunk_content_tsv", lambda _engine: None)
+    monkeypatch.setattr("backend.seed.demo_users.seed_demo_users", lambda _session: seeded.__setitem__("demo", True))
     monkeypatch.setattr("backend.seed.topic_owners.seed_topic_owners", lambda _session: None)
     db.SessionLocal = lambda: _FakeSessionContext()
 
@@ -115,3 +130,67 @@ def test_init_db_enables_pgvector_creates_tables_and_seeds_spaces(
     assert metadata_calls == [fake_engine]
     assert added_space_ids == ["company"]
     assert commit_calls == 1
+    assert seeded["demo"] is True
+
+
+def test_init_db_skips_demo_users_in_prod(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"demo": False, "owners": False}
+
+    class _FakeConnection:
+        def execute(self, stmt: object) -> None:
+            return None
+
+    class _FakeBeginContext:
+        def __enter__(self) -> _FakeConnection:
+            return _FakeConnection()
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            return False
+
+    fake_engine = SimpleNamespace(
+        dialect=SimpleNamespace(name="postgresql"),
+        begin=lambda: _FakeBeginContext(),
+    )
+
+    class _ScalarResult:
+        @staticmethod
+        def all() -> list[str]:
+            return ["student", "company"]
+
+    class _FakeSession:
+        def scalars(self, _query: object) -> _ScalarResult:
+            return _ScalarResult()
+
+        def add(self, item: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            return None
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            return False
+
+    monkeypatch.setattr("backend.config.settings.app_env", "prod")
+    monkeypatch.setattr(db, "init_engine", lambda: fake_engine)
+    monkeypatch.setattr(db.Base.metadata, "create_all", lambda *, bind: None)
+    monkeypatch.setattr(db, "_ensure_chunk_source_columns", lambda _engine: None)
+    monkeypatch.setattr(db, "_ensure_user_position_key", lambda _engine: None)
+    monkeypatch.setattr(db, "_ensure_chunk_content_tsv", lambda _engine: None)
+    monkeypatch.setattr(
+        "backend.seed.demo_users.seed_demo_users",
+        lambda _session: called.__setitem__("demo", True),
+    )
+    monkeypatch.setattr(
+        "backend.seed.topic_owners.seed_topic_owners",
+        lambda _session: called.__setitem__("owners", True),
+    )
+    db.SessionLocal = lambda: _FakeSessionContext()
+
+    db.init_db()
+
+    assert called["demo"] is False
+    assert called["owners"] is True

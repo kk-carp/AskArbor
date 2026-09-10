@@ -1,6 +1,10 @@
 """集中读取环境配置（.env）；其它模块通过 settings 取值，不得直接 os.getenv。"""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_SECRET_KEY = "change-me-for-local-dev"
+DEFAULT_DEMO_PASSWORD = "demo1234"
 
 
 class Settings(BaseSettings):
@@ -9,6 +13,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    # local=本机/上课（可写演示账号）；prod=正式（禁默认密钥与演示密码，不写演示账号）
+    app_env: str = "local"
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/fde"
 
@@ -39,9 +46,15 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
     max_code_member_bytes: int = 512 * 1024
 
-    secret_key: str = "change-me-for-local-dev"
-    demo_password: str = "demo1234"
+    secret_key: str = DEFAULT_SECRET_KEY
+    demo_password: str = DEFAULT_DEMO_PASSWORD
     session_cookie_name: str = "fde_session"
+
+    # 进程内限流：登录按用户名+IP，问答按登录用户
+    login_rate_max: int = 20
+    login_rate_window_seconds: int = 60
+    ask_rate_max: int = 60
+    ask_rate_window_seconds: int = 60
 
     # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
     conversation_history_turns: int = 3
@@ -67,5 +80,36 @@ class Settings(BaseSettings):
     advanced_resources_judge_fallback_k: int = 2
     advanced_resources_use_llm_router: bool = False
 
+    @field_validator("app_env")
+    @classmethod
+    def _normalize_app_env(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        if normalized not in {"local", "prod"}:
+            raise ValueError("APP_ENV 只能是 local 或 prod")
+        return normalized
+
 
 settings = Settings()
+
+
+def is_local_env() -> bool:
+    return settings.app_env == "local"
+
+
+def is_prod_env() -> bool:
+    return settings.app_env == "prod"
+
+
+def session_https_only() -> bool:
+    """正式环境要求登录 Cookie 只走 HTTPS；本机 http 开发保持可发送。"""
+    return is_prod_env()
+
+
+def assert_safe_for_environment() -> None:
+    """正式环境拒绝默认密钥/演示密码，避免把上课配置直接拿去对外用。"""
+    if not is_prod_env():
+        return
+    if not settings.secret_key or settings.secret_key == DEFAULT_SECRET_KEY:
+        raise RuntimeError("正式环境禁止使用默认 SECRET_KEY，请改成随机字符串。")
+    if not settings.demo_password or settings.demo_password == DEFAULT_DEMO_PASSWORD:
+        raise RuntimeError("正式环境禁止使用默认 DEMO_PASSWORD。")

@@ -109,10 +109,13 @@ def init_db() -> None:
         for space_id, name in (("student", "student"), ("company", "company")):
             if space_id not in existing_spaces:
                 session.add(Space(id=space_id, name=name))
-        from backend.seed.demo_users import seed_demo_users
         from backend.seed.topic_owners import seed_topic_owners
 
-        seed_demo_users(session)
+        # 正式环境不写入上课用的演示账号；本机/上课仍幂等写入。
+        if settings.app_env == "local":
+            from backend.seed.demo_users import seed_demo_users
+
+            seed_demo_users(session)
         seed_topic_owners(session)
         session.commit()
 

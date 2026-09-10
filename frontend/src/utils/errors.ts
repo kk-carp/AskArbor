@@ -15,6 +15,12 @@ export function describeRequestError(error: unknown): { title: string; detail: s
         detail: error.detail || "数据库或向量模型未加载，请稍后重试。这不是知识库未命中。",
       };
     }
+    if (error.status === 429) {
+      return {
+        title: "请求过于频繁",
+        detail: error.detail || "请稍后再试。这不是知识库未命中。",
+      };
+    }
     if (error.status === 413) {
       return { title: "文件过大", detail: error.detail };
     }

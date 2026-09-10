@@ -24,6 +24,8 @@ services:
       CHAT_BASE_URL: ${CHAT_BASE_URL:-https://api.deepseek.com}
       CHAT_API_KEY: ${CHAT_API_KEY:-}
       CHAT_MODEL: ${CHAT_MODEL:-deepseek-chat}
+      # 正式部署请设 APP_ENV=prod，并覆盖 SECRET_KEY / DEMO_PASSWORD（禁止使用下方默认值）
+      APP_ENV: ${APP_ENV:-local}
       SECRET_KEY: ${SECRET_KEY:-change-me-for-local-dev}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
       UPLOAD_DIR: data/uploads

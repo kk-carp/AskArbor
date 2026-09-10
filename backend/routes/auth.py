@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from backend.domain.membership import get_allowed_spaces_for_user
 from backend.errors import ServiceUnavailableError
+from backend.infra.rate_limit import RATE_LIMIT_DETAIL, allow_login, client_ip
 from backend.schemas import LoginRequest, MeResponse
 from backend.services.auth_service import (
     AuthUser,
@@ -32,6 +33,8 @@ def _to_me_response(user: AuthUser) -> MeResponse:
 
 @router.post("/login", response_model=MeResponse)
 async def login(payload: LoginRequest, request: Request) -> MeResponse:
+    if not allow_login(payload.username, client_ip(request)):
+        raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
     try:
         user = authenticate(payload.username, payload.password)
     except ServiceUnavailableError as exc:

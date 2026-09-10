@@ -113,15 +113,16 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/fde
 CHAT_BASE_URL=https://api.deepseek.com
 CHAT_API_KEY=你的密钥
 CHAT_MODEL=deepseek-chat
+APP_ENV=local
 SECRET_KEY=请改成本机随机字符串
 DEMO_PASSWORD=demo1234
 ```
 
 其余参数可先使用默认值（`EMBED_MODEL`、`RETRIEVE_TOP_K`、`RETRIEVE_MIN_SCORE` 等）。
 
-`SECRET_KEY` 与 `DEMO_PASSWORD` **仅用于本地演示**，不要用于生产，也不要提交真实密钥。
+`SECRET_KEY` 与 `DEMO_PASSWORD` **仅用于本地演示**，不要用于生产，也不要提交真实密钥。`APP_ENV=prod` 时若仍使用默认 `SECRET_KEY` 或 `DEMO_PASSWORD`，进程会拒绝启动；正式环境也不会自动写入演示账号。
 
-启动时会幂等写入三个演示账号（密码均为 `DEMO_PASSWORD`）：
+启动时（`APP_ENV=local`）会幂等写入三个演示账号（密码均为 `DEMO_PASSWORD`）：
 
 | 用户名 | 含义 | 可检索空间 | 备注 |
 | --- | --- | --- | --- |
@@ -257,5 +258,5 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 文档上传/下线仅教学岗（或管理员）；`failed`/`offline` 文档不可检索。
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
-- 问答审计日志（`backend.audit`）：用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。
+- 问答审计日志（`backend.audit`）：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。不含问题全文。访问日志带 `X-Request-ID`。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。

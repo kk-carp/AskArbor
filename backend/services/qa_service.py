@@ -9,6 +9,7 @@ from backend import db
 from backend.config import settings  # noqa: F401 — 测试通过 qa_service.settings 注入阈值
 from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
+from backend.infra.request_context import get_request_id
 from backend.infra.generate import ChatResult, generate_answer, generate_answer_stream
 from backend.infra.retrieve import RetrievedChunk, run_retrieval
 from backend.domain.position import boost_retrieval_query
@@ -96,11 +97,12 @@ def _write_audit(
     document_ids: list[str],
     error_type: str,
 ) -> None:
-    """最小审计：用户、角色、空间、是否命中、引用文档 ID、错误类型。不含密钥与正文。"""
+    """最小审计：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型。不含密钥与正文。"""
     if user_id is None:
         return
     _audit_logger.info(
-        "ask user_id=%s role=%s spaces=%s hit=%s docs=%s error=%s",
+        "ask request_id=%s user_id=%s role=%s spaces=%s hit=%s docs=%s error=%s",
+        get_request_id() or "-",
         user_id,
         user_role or "",
         ",".join(allowed_spaces),
