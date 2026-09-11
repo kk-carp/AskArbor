@@ -76,7 +76,7 @@ async def ask(payload: AskRequest, request: Request) -> AskResponse:
 
 @router.post("/ask/stream")
 async def ask_stream(payload: AskRequest, request: Request) -> StreamingResponse:
-    """SSE 包装问答：命中判断在出字前完成；未命中不调模型。"""
+    """SSE 包装问答：命中判断在出字前完成；经典未命中不调模型，学员实践参考除外。"""
     context = load_auth_context(request)
     if context is None:
         raise HTTPException(status_code=401, detail="未登录")

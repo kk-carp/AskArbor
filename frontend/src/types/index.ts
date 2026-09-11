@@ -51,10 +51,10 @@ export interface AskResponse {
   conversation_id: string | null;
   ticket_id: string | null;
   owner: OwnerInfo | null;
-  error_type?: "ocr_failed" | "screenshot_only" | null;
+  error_type?: "ocr_failed" | "screenshot_only" | "general_assist" | null;
   extracted_text?: string | null;
   extract_method?: "vision" | "ocr" | null;
-  /** 是否调用了生成模型；未命中拒答为 false */
+  /** 是否调用了生成模型；经典未命中拒答为 false，实践参考为 true */
   llm_called?: boolean;
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -86,7 +86,7 @@ export interface MessageAskMeta {
   ticket_id: string | null;
   owner: OwnerInfo | null;
   sources: SourceItem[];
-  error_type?: "ocr_failed" | "screenshot_only" | null;
+  error_type?: "ocr_failed" | "screenshot_only" | "general_assist" | null;
 }
 
 /** GET /documents */
@@ -227,6 +227,7 @@ export interface MetricsSnapshot {
   ask_error_503: number;
   ask_429: number;
   ask_screenshot_only: number;
+  ask_general_assist: number;
   llm_calls: number;
   prompt_tokens_total: number;
   completion_tokens_total: number;

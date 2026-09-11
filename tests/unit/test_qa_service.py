@@ -38,6 +38,31 @@ def test_answer_question_returns_miss_without_calling_generate(
     assert result.completion_tokens == 0
 
 
+def test_answer_question_concept_miss_without_role_does_not_assist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qa_service, "is_loaded", lambda: True)
+    monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1, 0.2])
+    monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        qa_service,
+        "generate_general_assist",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("无角色不应兜底")),
+    )
+    monkeypatch.setattr(
+        qa_service,
+        "generate_answer",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("不应走知识库生成")),
+    )
+
+    result = qa_service.answer_question(["student"], "动态规划是什么")
+
+    assert result.hit is False
+    assert result.answer == MISS_ANSWER
+    assert result.llm_called is False
+    assert result.error_type is None
+
+
 def test_answer_question_returns_miss_when_allowed_spaces_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

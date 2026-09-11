@@ -25,6 +25,7 @@ async def get_metrics(request: Request) -> MetricsResponse:
         ask_error_503=data.ask_error_503,
         ask_429=data.ask_429,
         ask_screenshot_only=data.ask_screenshot_only,
+        ask_general_assist=data.ask_general_assist,
         llm_calls=data.llm_calls,
         prompt_tokens_total=data.prompt_tokens_total,
         completion_tokens_total=data.completion_tokens_total,

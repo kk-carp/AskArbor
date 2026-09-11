@@ -54,7 +54,7 @@ def test_student_miss_creates_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = qa_service.answer_question(
         ["student"],
-        "完全无关的问题xyz",
+        "课程作业怎么交",
         user_id="stu-1",
         user_role="student",
         advisor_id="adv-1",
@@ -227,7 +227,7 @@ def test_student_miss_without_advisor_raises(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(TicketError, match="未绑定班主任"):
         qa_service.answer_question(
             ["student"],
-            "问题",
+            "课程作业怎么交",
             user_id="stu-1",
             user_role="student",
             advisor_id=None,

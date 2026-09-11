@@ -116,7 +116,7 @@ def test_student_miss_does_not_return_owner(monkeypatch) -> None:
 
     result = qa_service.answer_question(
         ["student"],
-        "年假怎么请",
+        "课程作业怎么交",
         user_id="stu-1",
         user_role="student",
         advisor_id="adv-1",

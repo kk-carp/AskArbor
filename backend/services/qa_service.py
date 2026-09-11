@@ -1,4 +1,7 @@
-"""问答编排：空间内检索、命中判断、拒答、来源与会话落库。未命中不调模型；来源只来自召回记录。"""
+"""问答编排：空间内检索、命中判断、拒答、来源与会话落库。
+
+教务/越权/虚构后勤未命中不调模型；学员概念与实践未命中可走实践参考。来源只来自召回记录。
+"""
 
 import logging
 from collections.abc import Iterator
@@ -11,8 +14,16 @@ from backend.errors import ServiceUnavailableError, UpstreamServiceError
 from backend.infra.embed import encode_query, is_loaded
 from backend.infra.metrics import record_ask_outcome
 from backend.infra.request_context import get_request_id
-from backend.infra.generate import ChatResult, generate_answer, generate_answer_stream
+from backend.infra.generate import (
+    ChatResult,
+    generate_answer,
+    generate_answer_stream,
+    generate_general_assist,
+    generate_general_assist_stream,
+)
 from backend.infra.retrieve import RetrievedChunk, run_retrieval
+from backend.domain.followup import expand_followup_query, last_user_question
+from backend.domain.general_assist import should_general_assist
 from backend.domain.position import boost_retrieval_query
 from backend.schemas import OwnerInfo, SourceItem
 from backend.services.conversation_service import (
@@ -27,6 +38,8 @@ from backend.services.topic_owner_service import lookup_owner_for_employee
 MISS_ANSWER = "知识库中没有足够依据回答这个问题。"
 SCREENSHOT_MARKER = "【截图文字】"
 SCREENSHOT_ONLY = "screenshot_only"
+GENERAL_ASSIST = "general_assist"
+GENERAL_ASSIST_NOTICE = "以下内容不是课程知识库中的依据，仅供实践参考。"
 SOURCE_SNIPPET_CHARS = 160
 
 _audit_logger = logging.getLogger("backend.audit")
@@ -87,6 +100,13 @@ def _build_sources(retrieved) -> list[SourceItem]:
         if len(unique_sources) >= 3:
             break
     return unique_sources
+
+
+def _compose_general_assist_answer(body: str) -> str:
+    text = (body or "").strip()
+    if text.startswith(GENERAL_ASSIST_NOTICE):
+        return text
+    return f"{GENERAL_ASSIST_NOTICE}\n\n{text}"
 
 
 def _write_audit(
@@ -151,10 +171,12 @@ def _retrieve(
     screenshot_text: str | None,
     *,
     position_key: str | None = None,
+    previous_user_question: str | None = None,
 ) -> list[RetrievedChunk]:
     if not allowed_spaces:
         return []
     query_text = retrieval_query_for_question(question, screenshot_text)
+    query_text = expand_followup_query(query_text, previous_user_question)
     query_text = boost_retrieval_query(query_text, position_key)
     query_vector = encode_query(query_text)
     return run_retrieval(
@@ -213,7 +235,7 @@ def iter_answer_events(
     screenshot_text: str | None = None,
     position_key: str | None = None,
 ) -> Iterator[tuple[str, dict]]:
-    """问答 SSE 事件：未命中只发 final；命中先 meta（含来源）再 delta，最后 final。
+    """问答 SSE 事件：经典未命中只发 final；命中或学员实践参考先 meta 再 delta，最后 final。
 
     502/503 仍抛异常，由路由转成 error 事件；不落库、不建工单。
     """
@@ -339,9 +361,94 @@ def iter_answer_events(
                 owner=owner,
             )
 
-        retrieved = _retrieve(allowed_spaces, normalized_question, shot, position_key=pos_key)
+        retrieved = _retrieve(
+            allowed_spaces,
+            normalized_question,
+            shot,
+            position_key=pos_key,
+            previous_user_question=last_user_question(history_tuples),
+        )
 
         if not retrieved and not shot:
+            if should_general_assist(user_role=user_role, question=normalized_question):
+                yield (
+                    "meta",
+                    {
+                        "hit": False,
+                        "sources": [],
+                        "conversation_id": conversation.id,
+                        "error_type": GENERAL_ASSIST,
+                    },
+                )
+                yield ("delta", {"text": GENERAL_ASSIST_NOTICE + "\n\n"})
+                try:
+                    generated = None
+                    for item in generate_general_assist_stream(
+                        normalized_question,
+                        history=history_tuples,
+                    ):
+                        if isinstance(item, str):
+                            yield ("delta", {"text": item})
+                        else:
+                            generated = item
+                    if generated is None:
+                        raise UpstreamServiceError("上游模型返回空响应")
+                except UpstreamServiceError:
+                    session.rollback()
+                    _write_audit(
+                        user_id=user_id,
+                        user_role=user_role,
+                        allowed_spaces=allowed_spaces,
+                        hit=None,
+                        document_ids=[],
+                        error_type="502",
+                    )
+                    raise
+                except ServiceUnavailableError:
+                    session.rollback()
+                    _write_audit(
+                        user_id=user_id,
+                        user_role=user_role,
+                        allowed_spaces=allowed_spaces,
+                        hit=None,
+                        document_ids=[],
+                        error_type="503",
+                    )
+                    raise
+                answer = _compose_general_assist_answer(generated.text)
+                append_turn(
+                    session,
+                    conversation=conversation,
+                    user_content=normalized_question,
+                    assistant_content=answer,
+                )
+                session.commit()
+                _write_audit(
+                    user_id=user_id,
+                    user_role=user_role,
+                    allowed_spaces=allowed_spaces,
+                    hit=False,
+                    document_ids=[],
+                    error_type=GENERAL_ASSIST,
+                    llm_called=True,
+                    prompt_tokens=generated.usage.prompt_tokens,
+                    completion_tokens=generated.usage.completion_tokens,
+                )
+                yield _emit_final(
+                    AskResult(
+                        answer=answer,
+                        hit=False,
+                        sources=[],
+                        conversation_id=UUID(conversation.id),
+                        ticket_id=None,
+                        owner=None,
+                        error_type=GENERAL_ASSIST,
+                        llm_called=True,
+                        prompt_tokens=generated.usage.prompt_tokens,
+                        completion_tokens=generated.usage.completion_tokens,
+                    )
+                )
+                return
             yield _emit_final(_miss_result())
             return
 
@@ -465,7 +572,7 @@ def answer_question(
     screenshot_text: str | None = None,
     position_key: str | None = None,
 ) -> AskResult:
-    """在允许空间内回答问题；学员未命中建工单；员工未命中查负责人；502/503 不建单、不落库。
+    """在允许空间内回答问题；学员教务等未命中建工单；概念/实践未命中走实践参考且不建单；员工未命中查负责人；502/503 不建单、不落库。
 
     screenshot_text：识图问答时传入，作为本轮可读依据；课表/成绩/制度仍只能信知识库片段。
     position_key：入职类问句时用于检索 query 拼接岗位中文名。
@@ -544,9 +651,74 @@ def answer_question(
                 owner=owner,
             )
 
-        retrieved = _retrieve(allowed_spaces, normalized_question, shot, position_key=pos_key)
+        retrieved = _retrieve(
+            allowed_spaces,
+            normalized_question,
+            shot,
+            position_key=pos_key,
+            previous_user_question=last_user_question(history_tuples),
+        )
 
         if not retrieved and not shot:
+            if should_general_assist(user_role=user_role, question=normalized_question):
+                try:
+                    generated = generate_general_assist(
+                        normalized_question,
+                        history=history_tuples,
+                    )
+                except UpstreamServiceError:
+                    session.rollback()
+                    _write_audit(
+                        user_id=user_id,
+                        user_role=user_role,
+                        allowed_spaces=allowed_spaces,
+                        hit=None,
+                        document_ids=[],
+                        error_type="502",
+                    )
+                    raise
+                except ServiceUnavailableError:
+                    session.rollback()
+                    _write_audit(
+                        user_id=user_id,
+                        user_role=user_role,
+                        allowed_spaces=allowed_spaces,
+                        hit=None,
+                        document_ids=[],
+                        error_type="503",
+                    )
+                    raise
+                answer = _compose_general_assist_answer(generated.text)
+                append_turn(
+                    session,
+                    conversation=conversation,
+                    user_content=normalized_question,
+                    assistant_content=answer,
+                )
+                session.commit()
+                _write_audit(
+                    user_id=user_id,
+                    user_role=user_role,
+                    allowed_spaces=allowed_spaces,
+                    hit=False,
+                    document_ids=[],
+                    error_type=GENERAL_ASSIST,
+                    llm_called=True,
+                    prompt_tokens=generated.usage.prompt_tokens,
+                    completion_tokens=generated.usage.completion_tokens,
+                )
+                return AskResult(
+                    answer=answer,
+                    hit=False,
+                    sources=[],
+                    conversation_id=UUID(conversation.id),
+                    ticket_id=None,
+                    owner=None,
+                    error_type=GENERAL_ASSIST,
+                    llm_called=True,
+                    prompt_tokens=generated.usage.prompt_tokens,
+                    completion_tokens=generated.usage.completion_tokens,
+                )
             return _miss_result()
 
         try:

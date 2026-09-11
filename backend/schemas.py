@@ -269,6 +269,7 @@ class MetricsResponse(BaseModel):
     ask_error_503: int
     ask_429: int
     ask_screenshot_only: int
+    ask_general_assist: int = 0
     llm_calls: int
     prompt_tokens_total: int
     completion_tokens_total: int

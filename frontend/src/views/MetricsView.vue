@@ -12,10 +12,11 @@ const cards: { key: keyof MetricsSnapshot; label: string; hint: string }[] = [
   { key: "ask_total", label: "问答次数", hint: "含命中与拒答" },
   { key: "ask_hit", label: "命中", hint: "有依据并作答" },
   { key: "ask_miss", label: "未命中拒答", hint: "知识库没有足够依据" },
+  { key: "ask_general_assist", label: "实践参考", hint: "学员概念/实践未命中兜底" },
   { key: "ask_error_502", label: "大模型失败", hint: "502，不是未命中" },
   { key: "ask_error_503", label: "服务未就绪", hint: "503，不是未命中" },
   { key: "ask_429", label: "过于频繁", hint: "被限流挡住" },
-  { key: "llm_calls", label: "调用大模型", hint: "未命中不计入" },
+  { key: "llm_calls", label: "调用大模型", hint: "拒答不计入，实践参考计入" },
   { key: "prompt_tokens_total", label: "提示 token", hint: "累计" },
   { key: "completion_tokens_total", label: "回复 token", hint: "累计" },
 ];

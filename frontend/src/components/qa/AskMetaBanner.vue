@@ -13,12 +13,16 @@ const showOwner = computed(() => props.meta !== null && props.meta.owner !== nul
 const showTicket = computed(() => Boolean(props.meta?.ticket_id));
 const isOcrFailed = computed(() => props.meta?.error_type === "ocr_failed");
 const isScreenshotOnly = computed(() => props.meta?.error_type === "screenshot_only");
+const isGeneralAssist = computed(() => props.meta?.error_type === "general_assist");
 const hitLabel = computed(() => {
   if (isOcrFailed.value) {
     return "图片识别失败";
   }
   if (isScreenshotOnly.value) {
     return "已依据截图文字";
+  }
+  if (isGeneralAssist.value) {
+    return "未命中知识库 · 实践参考";
   }
   if (props.meta?.hit === true) {
     return "已命中知识库";
@@ -34,6 +38,9 @@ const pillClass = computed(() => {
   }
   if (isScreenshotOnly.value) {
     return "shot";
+  }
+  if (isGeneralAssist.value) {
+    return "assist";
   }
   return props.meta?.hit ? "hit" : "miss";
 });
@@ -54,6 +61,9 @@ function goTicket(): void {
     <div v-if="isOcrFailed" class="note">这不是知识库未命中，不会自动创建学员工单。</div>
     <div v-if="isScreenshotOnly" class="note">
       知识库未命中；已根据截图文字解释操作/报错。课表、成绩、制度仍只信知识库。
+    </div>
+    <div v-if="isGeneralAssist" class="note">
+      以下为实践参考，不是课程知识库依据；需要时会检索公开网页，不会自动创建学员工单。
     </div>
     <div v-if="showTicket" class="note">
       <span>已自动创建学员工单 {{ meta.ticket_id }}</span>
@@ -103,6 +113,11 @@ function goTicket(): void {
 .hit-pill.shot {
   color: #075985;
   background: #e0f2fe;
+}
+
+.hit-pill.assist {
+  color: #854d0e;
+  background: #fef9c3;
 }
 
 .note {

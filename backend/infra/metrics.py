@@ -12,6 +12,7 @@ _counters = {
     "ask_error_503": 0,
     "ask_429": 0,
     "ask_screenshot_only": 0,
+    "ask_general_assist": 0,
     "llm_calls": 0,
     "prompt_tokens_total": 0,
     "completion_tokens_total": 0,
@@ -27,6 +28,7 @@ class MetricsSnapshot:
     ask_error_503: int
     ask_429: int
     ask_screenshot_only: int
+    ask_general_assist: int
     llm_calls: int
     prompt_tokens_total: int
     completion_tokens_total: int
@@ -67,6 +69,8 @@ def record_ask_outcome(
             _counters["ask_error_503"] += 1
         elif error_type == "screenshot_only":
             _counters["ask_screenshot_only"] += 1
+        elif error_type == "general_assist":
+            _counters["ask_general_assist"] += 1
         if llm_called:
             _counters["llm_calls"] += 1
         _counters["prompt_tokens_total"] += max(0, int(prompt_tokens))

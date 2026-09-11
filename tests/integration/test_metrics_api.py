@@ -51,4 +51,5 @@ def test_metrics_ok_for_teaching(monkeypatch: pytest.MonkeyPatch) -> None:
     body = response.json()
     assert body["ask_total"] == 0
     assert "ask_miss" in body
+    assert "ask_general_assist" in body
     assert "llm_calls" in body

@@ -267,7 +267,7 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 问答改为登录态：`student_demo` 只能检索 `student`，`employee_demo` 只能检索 `company`，`teaching_demo` 可检索两者。
 - 文档上传/下线仅教学岗（或管理员）；已下线文档可再删除（切片与上传文件一并去掉）。`failed`/`offline` 文档不可检索。
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
-- 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
+- 未登录提问返回 401；未命中或低于阈值时默认拒答、不调用 DeepSeek。学员问概念或实践且知识库未命中时，会给出带声明的实践参考（不建工单）；模型可选择调用公开网页搜索（与进阶资料相同的白名单站点），搜索失败则只用通用知识。教务、越权探测和虚构后勤仍走固定拒答。
 - 问答审计日志（`backend.audit`）：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。不含问题全文。访问日志带 `X-Request-ID`。
 - `APP_ENV=prod` 时，带登录 Cookie 的 POST/PUT/PATCH/DELETE 会校验 `Origin` 或 `Referer` 是否与当前 Host 一致，不一致返回 403。本机 `APP_ENV=local` 不启用（课上 TestClient 与 `:5173` 代理不受影响）。不要开生产 CORS `*`。
 - 登录页须勾选同意用户须知后才能点登录；`POST /login` 请求体不变，课上评测脚本不用改。
