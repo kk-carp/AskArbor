@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     retrieve_rrf_k: int = 60
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_candidates: int = 20
-    rerank_min_score: float = 0.0
+    rerank_min_score: float = 0.5
 
     upload_dir: str = "data/uploads"
     # 课件 PPTX 常带图片，10 MB 不够；仍可用 MAX_UPLOAD_BYTES 覆盖
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # 会话与已回复工单保留天数；<=0 表示不自动清理
     data_retention_days: int = 90
 
-    # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索仍只用本轮问题
+    # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索默认用本轮问句，追问时再拼上一轮用户原问
     conversation_history_turns: int = 3
 
     # 课外搜索 / 薄弱点归纳（进阶资料推荐等学伴能力共用）
