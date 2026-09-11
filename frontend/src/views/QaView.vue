@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from "vue";
-import { askQuestionStream, askWithImage, listConversations, listMessages } from "@/api/qa";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { askQuestionStream, askWithImage, deleteConversation, listConversations, listMessages } from "@/api/qa";
 import AskComposer from "@/components/qa/AskComposer.vue";
 import ConversationList from "@/components/qa/ConversationList.vue";
 import DisclaimerNote from "@/components/DisclaimerNote.vue";
@@ -79,6 +80,34 @@ function startNewConversation(): void {
   currentConversationId.value = null;
   messages.value = [];
   requestError.value = null;
+}
+
+async function handleDeleteConversation(item: ConversationItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除对话「${item.preview?.trim() || "新会话"}」？消息将一并删除且不可恢复。关联工单会保留。`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await deleteConversation(item.id);
+    messageImageStore.clearConversation(item.id);
+    askMetaStore.clearConversation(item.id);
+    if (currentConversationId.value === item.id) {
+      startNewConversation();
+    }
+    ElMessage.success("已删除");
+    await refreshConversations();
+  } catch (error) {
+    requestError.value = describeRequestError(error);
+  }
 }
 
 async function applyAskResult(result: AskResponse, localImageUrl: string | null): Promise<void> {
@@ -205,6 +234,7 @@ onMounted(async () => {
         :loading="listLoading"
         @select="selectConversation"
         @create="startNewConversation"
+        @remove="handleDeleteConversation"
       />
     </aside>
     <section class="qa-stage">

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { listDocuments, deleteDocument, offlineDocument, uploadCourseZip, uploadDocument } from "@/api/documents";
+import { listDocuments, batchDeleteDocuments, batchOfflineDocuments, deleteDocument, offlineDocument, uploadCourseZip, uploadDocument } from "@/api/documents";
 import CodePackUploadDialog from "@/components/knowledge/CodePackUploadDialog.vue";
+import DocumentActionBar from "@/components/knowledge/DocumentActionBar.vue";
 import DocumentSearchForm, { type DocumentSearchModel } from "@/components/knowledge/DocumentSearchForm.vue";
 import DocumentTable from "@/components/knowledge/DocumentTable.vue";
 import DocumentUploadDialog from "@/components/knowledge/DocumentUploadDialog.vue";
@@ -17,6 +18,9 @@ const codeUploading = ref(false);
 const codeUploadVisible = ref(false);
 const page = ref(1);
 const pageSize = ref(10);
+const selectedRows = ref<DocumentItem[]>([]);
+const batching = ref(false);
+const tableRef = ref<{ clearSelection: () => void } | null>(null);
 
 const query = reactive<DocumentSearchModel>({
   keyword: "",
@@ -174,6 +178,8 @@ async function handleOffline(row: DocumentItem): Promise<void> {
   try {
     await offlineDocument(row.id);
     ElMessage.success("已下线");
+    tableRef.value?.clearSelection();
+    selectedRows.value = [];
     await loadDocuments();
   } catch (error) {
     const described = describeRequestError(error);
@@ -198,10 +204,92 @@ async function handleDelete(row: DocumentItem): Promise<void> {
   try {
     await deleteDocument(row.id);
     ElMessage.success("已删除");
+    tableRef.value?.clearSelection();
+    selectedRows.value = [];
     await loadDocuments();
   } catch (error) {
     const described = describeRequestError(error);
     ElMessage.error(`${described.title}：${described.detail}`);
+  }
+}
+
+function handleSelectionChange(rows: DocumentItem[]): void {
+  selectedRows.value = rows;
+}
+
+async function handleBatchOffline(): Promise<void> {
+  const targets = selectedRows.value.filter((item) => item.status !== "offline");
+  if (!targets.length) {
+    ElMessage.info("请勾选未下线的文档");
+    return;
+  }
+  if (targets.length > 100) {
+    ElMessage.error("一次最多下线 100 个文档");
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认下线选中的 ${targets.length} 个文档？下线后不可检索。`,
+      "批量下线",
+      {
+        type: "warning",
+        confirmButtonText: "下线",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  batching.value = true;
+  try {
+    const result = await batchOfflineDocuments(targets.map((item) => item.id));
+    ElMessage.success(`已下线 ${result.done} 个${result.skipped ? `，跳过 ${result.skipped} 个` : ""}`);
+    tableRef.value?.clearSelection();
+    selectedRows.value = [];
+    await loadDocuments();
+  } catch (error) {
+    const described = describeRequestError(error);
+    ElMessage.error(`${described.title}：${described.detail}`);
+  } finally {
+    batching.value = false;
+  }
+}
+
+async function handleBatchDelete(): Promise<void> {
+  const targets = selectedRows.value.filter((item) => item.status === "offline");
+  if (!targets.length) {
+    ElMessage.info("请勾选已下线的文档");
+    return;
+  }
+  if (targets.length > 100) {
+    ElMessage.error("一次最多删除 100 个文档");
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${targets.length} 个已下线文档？将同时删除切片和上传文件，且不可恢复。`,
+      "批量删除",
+      {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  batching.value = true;
+  try {
+    const result = await batchDeleteDocuments(targets.map((item) => item.id));
+    ElMessage.success(`已删除 ${result.done} 个${result.skipped ? `，跳过 ${result.skipped} 个` : ""}`);
+    tableRef.value?.clearSelection();
+    selectedRows.value = [];
+    await loadDocuments();
+  } catch (error) {
+    const described = describeRequestError(error);
+    ElMessage.error(`${described.title}：${described.detail}`);
+  } finally {
+    batching.value = false;
   }
 }
 
@@ -211,16 +299,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-panel">
-    <p class="page-caption">仅教学岗可上传、下线；已下线文档可删除。课程代码包固定写入课程空间；失败条目会显示在列表中。</p>
+  <div class="page-panel knowledge-page">
+    <p class="page-caption">课程资料进课程空间，内部制度进内部空间。代码包只写入课程空间。未下线的文档可检索；删除前必须先下线。</p>
     <DocumentSearchForm
       :model="query"
       @search="handleSearch"
       @reset="handleReset"
+    />
+    <DocumentActionBar
+      :selected-count="selectedRows.length"
+      :batching="batching"
       @upload="uploadVisible = true"
       @upload-code="codeUploadVisible = true"
+      @batch-offline="handleBatchOffline"
+      @batch-delete="handleBatchDelete"
     />
     <DocumentTable
+      ref="tableRef"
       :rows="pagedRows"
       :total="filteredRows.length"
       :page="page"
@@ -230,6 +325,7 @@ onMounted(() => {
       @update:page-size="pageSize = $event; page = 1"
       @offline="handleOffline"
       @remove="handleDelete"
+      @selection-change="handleSelectionChange"
     />
     <DocumentUploadDialog
       v-model:visible="uploadVisible"
@@ -243,3 +339,9 @@ onMounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.knowledge-page .page-caption {
+  max-width: 42em;
+}
+</style>

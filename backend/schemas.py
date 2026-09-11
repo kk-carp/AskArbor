@@ -144,6 +144,17 @@ class DocumentResponse(BaseModel):
     path: str | None = None
 
 
+class DocumentIdListRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class DocumentBatchResult(BaseModel):
+    done: int
+    skipped: int
+
+
 class SkippedCodeFile(BaseModel):
     path: str
     reason: str

@@ -131,3 +131,93 @@ def test_delete_missing_document(monkeypatch) -> None:
     with pytest.raises(DocumentDeleteError) as exc:
         document_admin_service.delete_offline_document("missing")
     assert exc.value.status_code == 404
+
+
+def test_batch_offline_skips_already_offline(monkeypatch) -> None:
+    ready = SimpleNamespace(
+        id="a",
+        title="a.md",
+        space_id="student",
+        status=DocumentStatus.ready.value,
+        error="x",
+    )
+    offline = SimpleNamespace(
+        id="b",
+        title="b.md",
+        space_id="student",
+        status=DocumentStatus.offline.value,
+        error=None,
+    )
+    docs = {"a": ready, "b": offline}
+
+    class _Session:
+        def get(self, _model, doc_id):
+            return docs.get(doc_id)
+
+        def commit(self):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(document_admin_service, "_ensure_session", lambda: (lambda: _Session()))
+    result = document_admin_service.set_documents_offline(["a", "b", "missing"])
+    assert result.done == 1
+    assert result.skipped == 2
+    assert ready.status == DocumentStatus.offline.value
+    assert ready.error is None
+
+
+def test_batch_delete_only_offline(tmp_path, monkeypatch) -> None:
+    stored = tmp_path / "a.md"
+    stored.write_text("body", encoding="utf-8")
+    offline = SimpleNamespace(
+        id="a",
+        title="a.md",
+        space_id="student",
+        status=DocumentStatus.offline.value,
+        file_path=str(stored),
+        error=None,
+    )
+    ready = SimpleNamespace(
+        id="b",
+        title="b.md",
+        space_id="student",
+        status=DocumentStatus.ready.value,
+        file_path="data/uploads/student/b.md",
+        error=None,
+    )
+    docs = {"a": offline, "b": ready}
+    deleted: list[object] = []
+
+    class _Session:
+        def get(self, _model, doc_id):
+            return docs.get(doc_id)
+
+        def delete(self, obj: object) -> None:
+            deleted.append(obj)
+
+        def commit(self):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(document_admin_service, "_ensure_session", lambda: (lambda: _Session()))
+    monkeypatch.setattr(
+        document_admin_service,
+        "resolve_stored_path",
+        lambda path: stored if path == str(stored) else None,
+    )
+    result = document_admin_service.delete_offline_documents(["a", "b"])
+    assert result.done == 1
+    assert result.skipped == 1
+    assert deleted == [offline]
+    assert stored.exists() is False
+

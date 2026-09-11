@@ -226,6 +226,41 @@ def test_delete_ready_document_returns_400(monkeypatch: pytest.MonkeyPatch) -> N
     assert response.json()["detail"] == "只能删除已下线的文档"
 
 
+def test_batch_offline_and_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services.document_admin_service import BatchOpResult
+
+    user = AuthUser("u-t", "teaching_demo", "employee", True)
+    monkeypatch.setattr(
+        "backend.routes.documents.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student", "company"]),
+    )
+    monkeypatch.setattr(
+        "backend.routes.documents.set_documents_offline",
+        lambda _ids: BatchOpResult(done=2, skipped=1),
+    )
+    monkeypatch.setattr(
+        "backend.routes.documents.delete_offline_documents",
+        lambda _ids: BatchOpResult(done=1, skipped=0),
+    )
+    doc_a = str(uuid4())
+    doc_b = str(uuid4())
+    with _client(monkeypatch) as client:
+        offline = client.post("/documents/batch-offline", json={"ids": [doc_a, doc_b]})
+        assert offline.status_code == 200
+        assert offline.json() == {"done": 2, "skipped": 1}
+
+        deleted = client.post("/documents/batch-delete", json={"ids": [doc_a]})
+        assert deleted.status_code == 200
+        assert deleted.json() == {"done": 1, "skipped": 0}
+
+
+def test_batch_offline_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("backend.routes.documents.load_auth_context", lambda _request: None)
+    with _client(monkeypatch) as client:
+        response = client.post("/documents/batch-offline", json={"ids": [str(uuid4())]})
+    assert response.status_code == 401
+
+
 def test_download_file_requires_login(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("backend.routes.documents.load_auth_context", lambda _request: None)
     with _client(monkeypatch) as client:

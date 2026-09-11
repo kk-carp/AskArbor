@@ -15,6 +15,7 @@ const emit = defineEmits<{
   "update:page": [value: number];
   "update:pageSize": [value: number];
   reply: [row: TicketItem];
+  remove: [row: TicketItem];
 }>();
 </script>
 
@@ -41,10 +42,11 @@ const emit = defineEmits<{
       <el-table-column label="更新时间" width="160">
         <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
           <el-button v-if="canReply(row)" type="primary" link @click="emit('reply', row)">回复</el-button>
           <span v-else class="muted">{{ row.reply ? "已回复" : "等待回复" }}</span>
+          <el-button type="danger" link @click="emit('remove', row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

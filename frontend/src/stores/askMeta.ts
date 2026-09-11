@@ -38,5 +38,15 @@ export const useAskMetaStore = defineStore("askMeta", () => {
     return cache.value[conversationId]?.[messageId] ?? null;
   }
 
-  return { cache, save, getMeta };
+  function clearConversation(conversationId: string): void {
+    if (!cache.value[conversationId]) {
+      return;
+    }
+    const next = { ...cache.value };
+    delete next[conversationId];
+    cache.value = next;
+    writeStorage(next);
+  }
+
+  return { cache, save, getMeta, clearConversation };
 });

@@ -114,6 +114,15 @@ def create_ticket(
         return _to_view(ticket)
 
 
+def _can_access_ticket(viewer: AuthUser, ticket: Ticket) -> bool:
+    """与列表可见范围一致：教学岗全部；学员自己的；其他人看指派给自己或自己作为学员的。"""
+    if can_manage_documents(viewer):
+        return True
+    if viewer.role == "student":
+        return ticket.student_id == viewer.id
+    return ticket.assignee_id == viewer.id or ticket.student_id == viewer.id
+
+
 def list_tickets_for_user(viewer: AuthUser) -> list[TicketView]:
     """学员看自己的；处理人看指派给自己的；教学岗/admin 看全部。"""
     SessionLocal = _ensure_session_factory()
@@ -133,6 +142,20 @@ def list_tickets_for_user(viewer: AuthUser) -> list[TicketView]:
                 )
             ).all()
         return [_to_view(row) for row in rows]
+
+
+def delete_ticket_for_user(*, viewer: AuthUser, ticket_id: str) -> None:
+    """删除当前用户可见范围内的工单；不可见则视为不存在。"""
+    normalized = (ticket_id or "").strip()
+    if not normalized:
+        raise TicketNotFoundError("工单不存在")
+    SessionLocal = _ensure_session_factory()
+    with SessionLocal() as session:
+        ticket = session.get(Ticket, normalized)
+        if ticket is None or not _can_access_ticket(viewer, ticket):
+            raise TicketNotFoundError("工单不存在")
+        session.delete(ticket)
+        session.commit()
 
 
 def reply_ticket(

@@ -9,6 +9,7 @@ from backend.schemas import ConversationItem, MessageItem
 from backend.services.auth_service import load_auth_context
 from backend.services.conversation_service import (
     ConversationNotFoundError,
+    delete_conversation_for_user,
     list_conversations_for_user,
     list_messages_for_user,
 )
@@ -59,3 +60,18 @@ async def get_messages(conversation_id: UUID, request: Request) -> list[MessageI
         )
         for item in items
     ]
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: UUID, request: Request) -> dict[str, bool]:
+    """删除当前用户自己的会话；消息级联删除，关联工单保留。"""
+    context = load_auth_context(request)
+    if context is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    try:
+        delete_conversation_for_user(context.user.id, str(conversation_id))
+    except ConversationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"ok": True}

@@ -22,3 +22,9 @@ export function replyTicket(ticketId: string, reply: string): Promise<TicketItem
     body: JSON.stringify({ reply }),
   });
 }
+
+export function deleteTicket(ticketId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(`/tickets/${ticketId}`, {
+    method: "DELETE",
+  });
+}

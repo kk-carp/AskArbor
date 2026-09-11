@@ -18,6 +18,8 @@ const route = useRoute();
 const userStore = useUserStore();
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
+const accepted = ref(false);
+const termsVisible = ref(false);
 
 const form = reactive<LoginForm>({
   username: "",
@@ -40,7 +42,16 @@ function fillDemo(username: string): void {
   form.password = "demo1234";
 }
 
+function agreeTerms(): void {
+  accepted.value = true;
+  termsVisible.value = false;
+}
+
 async function handleSubmit(): Promise<void> {
+  if (!accepted.value) {
+    ElMessage.warning("请先勾选同意用户须知");
+    return;
+  }
   const valid = await formRef.value?.validate().catch(() => false);
   if (!valid) {
     return;
@@ -86,7 +97,21 @@ async function handleSubmit(): Promise<void> {
             @keyup.enter="handleSubmit"
           />
         </el-form-item>
-        <el-button type="primary" :loading="submitting" class="submit-btn" @click="handleSubmit">登录</el-button>
+        <div class="terms-row">
+          <el-checkbox v-model="accepted">
+            我已阅读并同意
+            <button type="button" class="terms-link" @click.stop="termsVisible = true">用户须知</button>
+          </el-checkbox>
+        </div>
+        <el-button
+          type="primary"
+          :loading="submitting"
+          :disabled="!accepted"
+          class="submit-btn"
+          @click="handleSubmit"
+        >
+          登录
+        </el-button>
       </el-form>
       <div class="demo">
         <span>演示账号</span>
@@ -96,6 +121,15 @@ async function handleSubmit(): Promise<void> {
       </div>
       <DisclaimerNote class="login-disclaimer" />
     </div>
+    <el-dialog v-model="termsVisible" title="用户须知" width="480px">
+      <div class="terms-body">
+        <p>答案由知识库生成，可能不准确。重要事务请向班主任或负责人确认，不要只依据系统回复做决定。</p>
+        <p>请勿把内部资料转发到无权查看的渠道。学员只能使用课程空间；请不要尝试套取无权信息。</p>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="agreeTerms">同意并关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -144,6 +178,45 @@ h1 {
   width: 100%;
   height: 40px;
   margin-top: 4px;
+}
+
+.terms-row {
+  margin: 4px 0 12px;
+}
+
+.terms-row :deep(.el-checkbox) {
+  align-items: center;
+  white-space: normal;
+  height: auto;
+}
+
+.terms-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.terms-link:hover {
+  text-decoration: underline;
+}
+
+.terms-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.terms-body p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+
+.terms-body p:last-child {
+  margin-bottom: 0;
 }
 
 .demo {

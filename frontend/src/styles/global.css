@@ -100,6 +100,10 @@ textarea {
   --el-table-text-color: var(--color-ink);
 }
 
+.el-checkbox {
+  --el-checkbox-border-radius: 2px;
+}
+
 .el-dialog {
   border-radius: var(--radius-md);
 }

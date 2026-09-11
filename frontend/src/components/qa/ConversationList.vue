@@ -11,6 +11,7 @@ defineProps<{
 const emit = defineEmits<{
   select: [id: string | null];
   create: [];
+  remove: [item: ConversationItem];
 }>();
 
 function conversationTitle(item: ConversationItem): string {
@@ -34,8 +35,18 @@ function conversationTitle(item: ConversationItem): string {
           :title="conversationTitle(item)"
           @click="emit('select', item.id)"
         >
-          <div class="conv-title">{{ conversationTitle(item) }}</div>
-          <div class="conv-meta">{{ item.message_count }} 条，{{ formatDateTime(item.updated_at) }}</div>
+          <div class="conv-main">
+            <div class="conv-title">{{ conversationTitle(item) }}</div>
+            <div class="conv-meta">{{ item.message_count }} 条，{{ formatDateTime(item.updated_at) }}</div>
+          </div>
+          <el-button
+            class="conv-delete"
+            type="danger"
+            link
+            @click.stop="emit('remove', item)"
+          >
+            删除
+          </el-button>
         </button>
       </el-scrollbar>
     </el-skeleton>
@@ -65,11 +76,14 @@ function conversationTitle(item: ConversationItem): string {
 
 .conv-item {
   width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
   text-align: left;
   border: 1px solid transparent;
   background: transparent;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 10px 8px 10px 12px;
   margin-bottom: 4px;
   cursor: pointer;
   color: var(--color-ink);
@@ -84,6 +98,11 @@ function conversationTitle(item: ConversationItem): string {
   border-color: transparent;
 }
 
+.conv-main {
+  min-width: 0;
+  flex: 1;
+}
+
 .conv-title {
   font-weight: 600;
   font-size: 13px;
@@ -96,5 +115,16 @@ function conversationTitle(item: ConversationItem): string {
   color: var(--color-muted);
   font-size: 12px;
   margin-top: 4px;
+}
+
+.conv-delete {
+  flex-shrink: 0;
+  padding: 0 4px;
+  opacity: 0.72;
+}
+
+.conv-item:hover .conv-delete,
+.conv-item.active .conv-delete {
+  opacity: 1;
 }
 </style>

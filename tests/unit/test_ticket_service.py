@@ -9,6 +9,7 @@ from backend.services.ticket_service import (
     TicketError,
     TicketNotFoundError,
     create_ticket_for_student,
+    delete_ticket_for_user,
     list_tickets_for_user,
     reply_ticket,
 )
@@ -179,3 +180,107 @@ def test_reply_ticket_forbidden_for_other_user(monkeypatch: pytest.MonkeyPatch) 
     actor = AuthUser("other", "employee_demo", "employee", False)
     with pytest.raises(TicketNotFoundError):
         reply_ticket(ticket_id=ticket_id, actor=actor, reply="hi")
+
+
+def test_delete_ticket_student_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    ticket_id = str(uuid4())
+    ticket = Ticket(
+        id=ticket_id,
+        question="q",
+        student_id="stu-1",
+        assignee_id="adv-1",
+        status=TicketStatus.open.value,
+    )
+    deleted: list[object] = []
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def get(self, _model, key):
+            return ticket if key == ticket_id else None
+
+        def delete(self, obj: object) -> None:
+            deleted.append(obj)
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        "backend.services.ticket_service._ensure_session_factory",
+        lambda: (lambda: _Session()),
+    )
+    viewer = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
+    delete_ticket_for_user(viewer=viewer, ticket_id=ticket_id)
+    assert deleted == [ticket]
+
+
+def test_delete_ticket_student_cannot_delete_others(monkeypatch: pytest.MonkeyPatch) -> None:
+    ticket_id = str(uuid4())
+    ticket = Ticket(
+        id=ticket_id,
+        question="q",
+        student_id="stu-other",
+        assignee_id="adv-1",
+        status=TicketStatus.open.value,
+    )
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def get(self, _model, key):
+            return ticket if key == ticket_id else None
+
+        def delete(self, _obj: object) -> None:
+            raise AssertionError("student must not delete others' tickets")
+
+    monkeypatch.setattr(
+        "backend.services.ticket_service._ensure_session_factory",
+        lambda: (lambda: _Session()),
+    )
+    viewer = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
+    with pytest.raises(TicketNotFoundError):
+        delete_ticket_for_user(viewer=viewer, ticket_id=ticket_id)
+
+
+def test_delete_ticket_teaching_can_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    ticket_id = str(uuid4())
+    ticket = Ticket(
+        id=ticket_id,
+        question="q",
+        student_id="stu-1",
+        assignee_id="adv-1",
+        status=TicketStatus.open.value,
+    )
+    deleted: list[object] = []
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def get(self, _model, key):
+            return ticket if key == ticket_id else None
+
+        def delete(self, obj: object) -> None:
+            deleted.append(obj)
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        "backend.services.ticket_service._ensure_session_factory",
+        lambda: (lambda: _Session()),
+    )
+    viewer = AuthUser("adv-1", "teaching_demo", "employee", True)
+    delete_ticket_for_user(viewer=viewer, ticket_id=ticket_id)
+    assert deleted == [ticket]

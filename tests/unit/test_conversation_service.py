@@ -90,3 +90,57 @@ def test_append_turn_adds_user_and_assistant() -> None:
     assert session.added[0].role == "user"
     assert session.added[1].role == "assistant"
     assert conversation.updated_at is not None
+
+
+def test_delete_conversation_for_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    conversation = Conversation(id="c1", user_id="u1")
+    deleted: list[object] = []
+
+    class _Session:
+        def get(self, _model, _id):
+            return conversation
+
+        def delete(self, obj: object) -> None:
+            deleted.append(obj)
+
+        def commit(self) -> None:
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(
+        conversation_service,
+        "_ensure_session_factory",
+        lambda: (lambda: _Session()),
+    )
+    conversation_service.delete_conversation_for_user("u1", "c1")
+    assert deleted == [conversation]
+
+
+def test_delete_conversation_rejects_other_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    conversation = Conversation(id="c1", user_id="other")
+
+    class _Session:
+        def get(self, _model, _id):
+            return conversation
+
+        def delete(self, _obj: object) -> None:
+            raise AssertionError("must not delete others' conversations")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(
+        conversation_service,
+        "_ensure_session_factory",
+        lambda: (lambda: _Session()),
+    )
+    with pytest.raises(ConversationNotFoundError):
+        conversation_service.delete_conversation_for_user("u1", "c1")

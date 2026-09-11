@@ -134,7 +134,7 @@ DEMO_PASSWORD=demo1234
 
 启动时还会幂等写入样例 `topic_owners`（请假 / 报销 / IT / 考勤）。联系方式为 `example.local` 演示值，不是真实人员；已有记录不会被覆盖。
 
-默认保留最近 90 天的会话；已回复且超过该天数的工单会在启动时清理一次。未回复工单会保留。也可手动执行：
+默认保留最近 90 天的会话；已回复且超过该天数的工单会在启动时清理一次。未回复工单会保留。用户也可在页面删除自己的会话，以及列表里能看到的工单。也可手动执行：
 
 ```powershell
 python -m backend.scripts.purge_expired
@@ -269,5 +269,7 @@ python .\scripts\run_phase1_eval.py --mode oracle
 - 学员未命中会建班主任工单；员工未命中返回 `owner`（库中联系方式或 `configured=false`），不调用模型编造。
 - 未登录提问返回 401；未命中或低于阈值时会直接拒答，不调用 DeepSeek。
 - 问答审计日志（`backend.audit`）：请求编号、用户、角色、空间、是否命中、引用文档 ID、错误类型（hit/miss/502/503）。不含问题全文。访问日志带 `X-Request-ID`。
+- `APP_ENV=prod` 时，带登录 Cookie 的 POST/PUT/PATCH/DELETE 会校验 `Origin` 或 `Referer` 是否与当前 Host 一致，不一致返回 403。本机 `APP_ENV=local` 不启用（课上 TestClient 与 `:5173` 代理不受影响）。不要开生产 CORS `*`。
+- 登录页须勾选同意用户须知后才能点登录；`POST /login` 请求体不变，课上评测脚本不用改。
 - 来源标题可打开原文：`GET /documents/{id}/file` 会再校验该用户是否有该空间权限。
 - `data/uploads/` 是本地上传目录，默认不入库版本控制。

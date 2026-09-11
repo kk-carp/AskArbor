@@ -155,3 +155,38 @@ def test_conversations_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
     with _client(monkeypatch) as client:
         assert client.get("/conversations").status_code == 401
         assert client.get(f"/conversations/{uuid4()}/messages").status_code == 401
+        assert client.delete(f"/conversations/{uuid4()}").status_code == 401
+
+
+def test_delete_conversation_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = _auth_user()
+    conversation_id = uuid4()
+    monkeypatch.setattr(
+        "backend.routes.conversations.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+    monkeypatch.setattr(
+        "backend.routes.conversations.delete_conversation_for_user",
+        lambda user_id, cid: None,
+    )
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/conversations/{conversation_id}")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_delete_conversation_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = _auth_user()
+    monkeypatch.setattr(
+        "backend.routes.conversations.load_auth_context",
+        lambda _request: AuthContext(user=user, allowed_spaces=["student"]),
+    )
+
+    def _missing(_user_id: str, _cid: str) -> None:
+        raise ConversationNotFoundError("会话不存在")
+
+    monkeypatch.setattr("backend.routes.conversations.delete_conversation_for_user", _missing)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/conversations/{uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "会话不存在"

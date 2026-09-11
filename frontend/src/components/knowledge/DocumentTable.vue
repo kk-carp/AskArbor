@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import type { DocumentItem } from "@/types";
 import { documentStatusLabel, shortId, spaceLabel } from "@/utils/labels";
 
@@ -15,7 +16,10 @@ const emit = defineEmits<{
   "update:pageSize": [value: number];
   offline: [row: DocumentItem];
   remove: [row: DocumentItem];
+  "selection-change": [rows: DocumentItem[]];
 }>();
+
+const tableRef = ref();
 
 function statusType(status: DocumentItem["status"]): "success" | "info" | "warning" | "danger" {
   if (status === "ready") {
@@ -29,11 +33,25 @@ function statusType(status: DocumentItem["status"]): "success" | "info" | "warni
   }
   return "warning";
 }
+
+function clearSelection(): void {
+  tableRef.value?.clearSelection();
+}
+
+defineExpose({ clearSelection });
 </script>
 
 <template>
   <div>
-    <el-table :data="rows" v-loading="loading" empty-text="暂无文档">
+    <el-table
+      ref="tableRef"
+      :data="rows"
+      row-key="id"
+      v-loading="loading"
+      empty-text="还没有文档，用上方按钮上传"
+      @selection-change="emit('selection-change', $event)"
+    >
+      <el-table-column type="selection" width="44" reserve-selection />
       <el-table-column label="标题" prop="title" min-width="180" />
       <el-table-column label="空间" width="120">
         <template #default="{ row }">{{ spaceLabel(row.space_id) }}</template>

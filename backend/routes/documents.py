@@ -7,13 +7,15 @@ from fastapi.responses import FileResponse
 
 from backend.config import settings
 from backend.errors import ServiceUnavailableError
-from backend.schemas import DocumentResponse
+from backend.schemas import DocumentBatchResult, DocumentIdListRequest, DocumentResponse
 from backend.services.auth_service import can_manage_documents, load_auth_context
 from backend.services.document_admin_service import (
     DocumentDeleteError,
     delete_offline_document,
+    delete_offline_documents,
     list_documents,
     set_document_offline,
+    set_documents_offline,
 )
 from backend.services.document_file_service import DocumentFileError, open_document_file
 from backend.services.ingest_service import DuplicateDocumentError, ingest_document
@@ -106,6 +108,36 @@ async def upload_document(
         status=result.status,
         chunk_count=result.chunk_count,
     )
+
+
+@router.post("/documents/batch-offline", response_model=DocumentBatchResult)
+async def batch_offline_documents(
+    payload: DocumentIdListRequest, request: Request
+) -> DocumentBatchResult:
+    """批量下线；已下线或不存在的计入 skipped。"""
+    _require_document_manager(request)
+    try:
+        result = set_documents_offline(payload.ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return DocumentBatchResult(done=result.done, skipped=result.skipped)
+
+
+@router.post("/documents/batch-delete", response_model=DocumentBatchResult)
+async def batch_delete_documents(
+    payload: DocumentIdListRequest, request: Request
+) -> DocumentBatchResult:
+    """批量删除已下线文档；未下线或不存在的计入 skipped。"""
+    _require_document_manager(request)
+    try:
+        result = delete_offline_documents(payload.ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return DocumentBatchResult(done=result.done, skipped=result.skipped)
 
 
 @router.post("/documents/{document_id}/offline", response_model=DocumentResponse)

@@ -15,17 +15,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   search: [];
   reset: [];
-  upload: [];
-  uploadCode: [];
 }>();
 
 const inner = reactive(props.model);
 </script>
 
 <template>
-  <el-form :inline="true" :model="inner" class="toolbar">
+  <el-form :inline="true" :model="inner" class="toolbar" @submit.prevent="emit('search')">
     <el-form-item label="标题">
-      <el-input v-model="inner.keyword" placeholder="按标题搜索" clearable />
+      <el-input v-model="inner.keyword" placeholder="按标题查找" clearable @keyup.enter="emit('search')" />
     </el-form-item>
     <el-form-item label="空间">
       <el-select v-model="inner.space_id" placeholder="全部" clearable style="width: 140px">
@@ -42,16 +40,18 @@ const inner = reactive(props.model);
       </el-select>
     </el-form-item>
     <el-form-item>
-      <el-button type="primary" @click="emit('search')">搜索</el-button>
-      <el-button @click="emit('reset')">重置</el-button>
-      <el-button type="success" @click="emit('upload')">上传文档</el-button>
-      <el-button @click="emit('uploadCode')">上传课程代码包</el-button>
+      <el-button type="primary" native-type="submit">查找</el-button>
+      <el-button @click="emit('reset')">清空条件</el-button>
     </el-form-item>
   </el-form>
 </template>
 
 <style scoped>
 .toolbar {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.toolbar :deep(.el-form-item) {
+  margin-bottom: 10px;
 }
 </style>

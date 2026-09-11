@@ -29,6 +29,8 @@ function isApiWrite(url: string): boolean {
     url === "/ask/stream" ||
     url === "/ocr" ||
     url === "/documents" ||
+    url === "/documents/batch-offline" ||
+    url === "/documents/batch-delete" ||
     url.startsWith("/documents/") ||
     url === "/code-ingest" ||
     url === "/tickets" ||

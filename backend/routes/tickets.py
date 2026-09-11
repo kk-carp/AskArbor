@@ -11,6 +11,7 @@ from backend.services.ticket_service import (
     TicketError,
     TicketNotFoundError,
     create_ticket,
+    delete_ticket_for_user,
     list_tickets_for_user,
     reply_ticket,
 )
@@ -87,3 +88,18 @@ async def post_ticket_reply(
     except ServiceUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return _to_response(item)
+
+
+@router.delete("/tickets/{ticket_id}")
+async def delete_ticket(ticket_id: UUID, request: Request) -> dict[str, bool]:
+    """删除当前用户可见范围内的工单。"""
+    context = load_auth_context(request)
+    if context is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    try:
+        delete_ticket_for_user(viewer=context.user, ticket_id=str(ticket_id))
+    except TicketNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"ok": True}

@@ -42,3 +42,17 @@ export function deleteDocument(documentId: string): Promise<{ ok: boolean }> {
     method: "DELETE",
   });
 }
+
+export function batchOfflineDocuments(ids: string[]): Promise<{ done: number; skipped: number }> {
+  return requestJson<{ done: number; skipped: number }>("/documents/batch-offline", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export function batchDeleteDocuments(ids: string[]): Promise<{ done: number; skipped: number }> {
+  return requestJson<{ done: number; skipped: number }>("/documents/batch-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}

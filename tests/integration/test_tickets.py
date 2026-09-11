@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.services.auth_service import AuthContext, AuthUser
 from backend.services.qa_service import AskResult, MISS_ANSWER
-from backend.services.ticket_service import TicketError, TicketView
+from backend.services.ticket_service import TicketError, TicketNotFoundError, TicketView
 
 
 def _client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
@@ -144,3 +144,35 @@ def test_tickets_require_login(monkeypatch: pytest.MonkeyPatch) -> None:
     with _client(monkeypatch) as client:
         assert client.get("/tickets").status_code == 401
         assert client.post("/tickets", json={"question": "q"}).status_code == 401
+        assert client.delete(f"/tickets/{uuid4()}").status_code == 401
+
+
+def test_delete_ticket_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    student = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
+    ticket_id = uuid4()
+    monkeypatch.setattr(
+        "backend.routes.tickets.load_auth_context",
+        lambda _r: AuthContext(user=student, allowed_spaces=["student"]),
+    )
+    monkeypatch.setattr("backend.routes.tickets.delete_ticket_for_user", lambda **_k: None)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/tickets/{ticket_id}")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_delete_ticket_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    student = AuthUser("stu-1", "student_demo", "student", False, advisor_id="adv-1")
+    monkeypatch.setattr(
+        "backend.routes.tickets.load_auth_context",
+        lambda _r: AuthContext(user=student, allowed_spaces=["student"]),
+    )
+
+    def _missing(**_k):
+        raise TicketNotFoundError("工单不存在")
+
+    monkeypatch.setattr("backend.routes.tickets.delete_ticket_for_user", _missing)
+    with _client(monkeypatch) as client:
+        response = client.delete(f"/tickets/{uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "工单不存在"

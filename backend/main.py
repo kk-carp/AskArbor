@@ -12,6 +12,7 @@ from backend.config import assert_safe_for_environment, session_https_only, sett
 from backend.db import init_db
 from backend.infra.embed import load_model
 from backend.infra.open_resource import init_open_resource_search_tools
+from backend.infra.origin_guard import OriginGuardMiddleware
 from backend.infra.rerank import load_reranker
 from backend.infra.request_context import RequestIdMiddleware
 from backend.routes import (
@@ -87,7 +88,8 @@ app.add_middleware(
     https_only=session_https_only(),
     max_age=60 * 60 * 24 * 7,
 )
-# 后添加的中间件在更外层：保证所有请求都有编号。
+# 后添加的更靠外：Origin 校验包住 Session；RequestId 最外层，403 也带编号。
+app.add_middleware(OriginGuardMiddleware)
 app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router)

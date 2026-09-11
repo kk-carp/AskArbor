@@ -187,3 +187,17 @@ def list_messages_for_user(user_id: str, conversation_id: str) -> list[MessageVi
             )
             for row in rows
         ]
+
+
+def delete_conversation_for_user(user_id: str, conversation_id: str) -> None:
+    """删除当前用户自己的会话；消息级联删除。他人会话视为不存在。"""
+    normalized = (conversation_id or "").strip()
+    if not normalized:
+        raise ConversationNotFoundError("会话不存在")
+    SessionLocal = _ensure_session_factory()
+    with SessionLocal() as session:
+        conversation = session.get(Conversation, normalized)
+        if conversation is None or conversation.user_id != user_id:
+            raise ConversationNotFoundError("会话不存在")
+        session.delete(conversation)
+        session.commit()

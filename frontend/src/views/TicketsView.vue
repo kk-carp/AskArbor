@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ElMessage } from "element-plus";
-import { createTicket, listTickets, replyTicket } from "@/api/tickets";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { createTicket, deleteTicket, listTickets, replyTicket } from "@/api/tickets";
 import CreateTicketDialog from "@/components/tickets/CreateTicketDialog.vue";
 import ReplyTicketDialog from "@/components/tickets/ReplyTicketDialog.vue";
 import TicketSearchForm, { type TicketSearchModel } from "@/components/tickets/TicketSearchForm.vue";
@@ -92,6 +92,30 @@ async function handleCreate(question: string): Promise<void> {
   }
 }
 
+async function handleDelete(row: TicketItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除工单「${row.question}」？删除后不可恢复。`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await deleteTicket(row.id);
+    ElMessage.success("已删除");
+    await loadTickets();
+  } catch (error) {
+    const described = describeRequestError(error);
+    ElMessage.error(`${described.title}：${described.detail}`);
+  }
+}
+
 function openReply(row: TicketItem): void {
   currentTicket.value = row;
   replyVisible.value = true;
@@ -135,7 +159,7 @@ onMounted(() => {
 <template>
   <div class="page-panel">
     <p class="page-caption">
-      仅学员可显式建单；处理人由服务端按班主任计算。列表由接口过滤，回复不会入库。
+      仅学员可显式建单；处理人由服务端按班主任计算。列表由接口过滤。可见工单可删除，回复不会入库。
     </p>
     <el-alert
       v-if="highlightId"
@@ -161,6 +185,7 @@ onMounted(() => {
       @update:page="page = $event"
       @update:page-size="pageSize = $event; page = 1"
       @reply="openReply"
+      @remove="handleDelete"
     />
     <CreateTicketDialog v-model:visible="createVisible" :submitting="creating" @submit="handleCreate" />
     <ReplyTicketDialog

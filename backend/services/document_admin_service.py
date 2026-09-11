@@ -109,3 +109,69 @@ def delete_offline_document(document_id: str) -> None:
 
     if stored is not None:
         stored.unlink(missing_ok=True)
+
+
+MAX_BATCH_IDS = 100
+
+
+@dataclass(frozen=True)
+class BatchOpResult:
+    done: int
+    skipped: int
+
+
+def _normalize_ids(document_ids: list[str]) -> list[str]:
+    seen: list[str] = []
+    for raw in document_ids:
+        value = (raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.append(value)
+    if not seen:
+        raise ValueError("文档 ID 不能为空")
+    if len(seen) > MAX_BATCH_IDS:
+        raise ValueError(f"一次最多处理 {MAX_BATCH_IDS} 条")
+    return seen
+
+
+def set_documents_offline(document_ids: list[str]) -> BatchOpResult:
+    """批量下线；已下线或不存在的计入 skipped。"""
+    ids = _normalize_ids(document_ids)
+    SessionLocal = _ensure_session()
+    done = 0
+    skipped = 0
+    with SessionLocal() as session:
+        for document_id in ids:
+            document = session.get(Document, document_id)
+            if document is None or document.status == DocumentStatus.offline.value:
+                skipped += 1
+                continue
+            document.status = DocumentStatus.offline.value
+            document.error = None
+            done += 1
+        session.commit()
+    return BatchOpResult(done=done, skipped=skipped)
+
+
+def delete_offline_documents(document_ids: list[str]) -> BatchOpResult:
+    """批量删除已下线文档；未下线或不存在的计入 skipped。"""
+    ids = _normalize_ids(document_ids)
+    SessionLocal = _ensure_session()
+    done = 0
+    skipped = 0
+    files_to_unlink: list = []
+    with SessionLocal() as session:
+        for document_id in ids:
+            document = session.get(Document, document_id)
+            if document is None or document.status != DocumentStatus.offline.value:
+                skipped += 1
+                continue
+            stored = resolve_stored_path(document.file_path)
+            session.delete(document)
+            files_to_unlink.append(stored)
+            done += 1
+        session.commit()
+    for stored in files_to_unlink:
+        if stored is not None:
+            stored.unlink(missing_ok=True)
+    return BatchOpResult(done=done, skipped=skipped)
