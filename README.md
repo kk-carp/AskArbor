@@ -3,7 +3,7 @@
 FDE 课程实践：文档入库、按空间隔离检索、DeepSeek 作答、真实来源与未命中拒答。
 
 已落地：登录授权、文档下线、会话、学员工单、主题负责人、进阶资料推荐、OCR、混合检索与重排、Compose 整包。  
-**文档权威入口：** [`docs/README.md`](docs/README.md)（课程对照 / 评测作业 / 架构；其余为历史归档或补充）。
+**文档权威入口：** [`docs/README.md`](docs/README.md)（按文件名前缀排序：`01` 课程覆盖 → `02` 评估作业 → `03` 系统架构；其余为补充或历史归档）。
 
 ## 上课最短路径
 
@@ -45,7 +45,7 @@ npm run dev
 python .\scripts\run_phase1_eval.py --mode oracle
 ```
 
-真实延迟与 token 用 `--mode live`（脚本可自动上传样例）。作业说明：[`docs/评估与安全作业.md`](docs/评估与安全作业.md)。
+真实延迟与 token 用 `--mode live`（脚本可自动上传样例）。作业说明：[`docs/02-评估作业.md`](docs/02-评估作业.md)。
 
 本机只起库、API 用 venv，避免与 Compose 里的 API 抢 `:8000`。`--reload-dir backend` 避免改脚本/文档时掐断请求。
 
@@ -60,7 +60,7 @@ docs/        见 docs/README.md
 data/uploads/
 ```
 
-旧路径对照：[`docs/项目结构映射.md`](docs/项目结构映射.md)。
+旧路径对照：[`docs/10-项目结构映射.md`](docs/10-项目结构映射.md)。
 
 ## 配置与演示账号
 
@@ -106,7 +106,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_t13_acceptance.ps1
 python .\scripts\run_phase1_eval.py --mode live   # 或 oracle；发版可加 --gate
 ```
 
-- T13 断言说明：[`docs/T13验收复现步骤.md`](docs/T13验收复现步骤.md)
+- T13 断言说明：[`docs/11-T13验收.md`](docs/11-T13验收.md)
 - 评测集：`docs/samples/eval/phase1_minimal_eval_set.jsonl`（course / policy / no_answer / isolation）
 - 输出：`docs/phase1_eval_baseline.md`、`.json`
 

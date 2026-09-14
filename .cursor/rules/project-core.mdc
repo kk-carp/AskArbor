@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 项目核心规范
 
-- 当前目标是 FDE 课程 MVP；以 `docs/需求分析.md`、`docs/技术选型.md`、`docs/系统架构设计.md` 为需求与架构基准。
+- 当前目标是 FDE 课程 MVP；以 `docs/80-需求-总览.md`、`docs/04-技术选型.md`、`docs/03-系统架构.md` 为需求与架构基准。
 - MVP 只实现文档入库、BGE-M3 dense 向量、按空间隔离检索、DeepSeek 作答、真实来源和未命中拒答。
 - 未经明确要求，不实现登录、用户表、工单、负责人、Redis、Celery、对象存储、独立前端或微服务。
 - 保持单体 FastAPI + PostgreSQL/pgvector；BGE-M3 在 API 进程启动时加载一次。
