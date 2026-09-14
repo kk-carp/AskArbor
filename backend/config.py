@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     advanced_resources_max_topics: int = 3
     advanced_resources_judge_fallback_k: int = 2
     advanced_resources_use_llm_router: bool = False
+    # 本仓 Skill 包（CE §3.2）：仓库内 skills/*/SKILL.md
+    skills_dir: str = "skills"
+    advanced_resources_skill: str = "advanced-resources"
 
     @field_validator("app_env")
     @classmethod

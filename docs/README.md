@@ -24,10 +24,11 @@
 | [05-混合检索.md](./05-混合检索.md) | hybrid + rerank（已落地） |
 | [06-进阶资料推荐.md](./06-进阶资料推荐.md) | 旁路 Agent（已落地） |
 | [07-上下文压缩.md](./07-上下文压缩.md) | 会话滚动摘要（已落地） |
-| [08-CE与MCP.md](./08-CE与MCP.md) | Context Engineering / MCP 总览；压缩已落地，其余设计中 |
+| [08-CE与MCP.md](./08-CE与MCP.md) | Context Engineering / MCP 总览；压缩与本仓 Skill 已落地，其余设计中 |
 | [09-上线差距.md](./09-上线差距.md) | 相对可上线系统的差距；**不是课表** |
 | [10-项目结构映射.md](./10-项目结构映射.md) | 旧路径 → 新路径 |
 | [11-T13验收.md](./11-T13验收.md) | T13 验收脚本断言说明 |
+| [12-本仓Skill.md](./12-本仓Skill.md) | 本仓 Skill 包清单（已落地） |
 
 **评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)
 

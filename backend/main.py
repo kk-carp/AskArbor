@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from backend.config import assert_safe_for_environment, session_https_only, settings
 from backend.db import init_db
+from backend.domain.skills import assert_builtin_skills
 from backend.infra.embed import load_model
 from backend.infra.open_resource import init_open_resource_search_tools
 from backend.infra.origin_guard import OriginGuardMiddleware
@@ -47,27 +48,32 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     assert_safe_for_environment()
 
     t0 = time.perf_counter()
-    _step("1/4 init_db")
+    _step("1/5 init_db")
     init_db()
-    _done("1/4 init_db", t0)
+    _done("1/5 init_db", t0)
 
     t0 = time.perf_counter()
-    _step(f"2/4 load embed model ({settings.embed_model})")
+    _step(f"2/5 load embed model ({settings.embed_model})")
     load_model()
-    _done("2/4 load embed model", t0)
+    _done("2/5 load embed model", t0)
 
     t0 = time.perf_counter()
     if settings.retrieve_use_rerank:
-        _step(f"3/4 load reranker ({settings.rerank_model})")
+        _step(f"3/5 load reranker ({settings.rerank_model})")
     else:
-        _step("3/4 load reranker (skipped)")
+        _step("3/5 load reranker (skipped)")
     load_reranker()
-    _done("3/4 load reranker", t0)
+    _done("3/5 load reranker", t0)
 
     t0 = time.perf_counter()
-    _step("4/4 open-resource tools")
+    _step("4/5 open-resource tools")
     init_open_resource_search_tools()
-    _done("4/4 open-resource tools", t0)
+    _done("4/5 open-resource tools", t0)
+
+    t0 = time.perf_counter()
+    _step("5/5 assert builtin skills")
+    assert_builtin_skills()
+    _done("5/5 assert builtin skills", t0)
 
     _log.info("startup complete (%.1fs total)", time.perf_counter() - started)
     yield
