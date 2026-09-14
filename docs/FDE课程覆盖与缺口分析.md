@@ -34,7 +34,7 @@
 | 27    | 选型与成本         | ✅   | 评测脚本记延迟与 DeepSeek usage；拒答 token=0                                                      |
 | 28    | RAG                | ✅   | 入库 → 切片 → 混合检索 → 重排 → 隔离 → 来源 → 拒答                                                 |
 | 29    | 工作流约束         | ✅   | 未命中分流、502≠未命中、空间裁剪、搜索白名单                                                       |
-| 30    | Agent              | ✅   | 进阶资料推荐（白名单工具 + 相关性改写）；公司 Skill 不做；`/advanced-resources/plan/stream` 已实现 |
+| 30    | Agent              | ✅   | 进阶资料推荐已落地；**会话上下文压缩已落地**（`context_summary`）。公司 SkillHub / MCP / Memory **未实现**。其余 CE 设计见 `docs/ContextEngineering与MCP设计.md` |
 | 31    | 多模态             | ✅   | 截图 OCR → `/ask`；流式输出已实现。**语音 / 视频本仓不做**                                         |
 | 32    | LoRA               | ⏭   | 不微调线上模型；**不布置 LoRA 作业、不建实验目录**                                                 |
 | 39    | 大模型 API         | 🟡   | OpenAI 兼容调 DeepSeek；多供应商抽象可点到为止，非必做                                             |
@@ -57,8 +57,9 @@
 
 1. 第 39 课：多供应商 / 换模型的配置说明（点到为止）
 2. 第 44–46 课：结合 pgvector 分数与拒答阈值讲一点原理
+3. 第 30 课可对照讲 Context Engineering：压缩已实现；MCP Client / Memory 等**仅设计文档**（`docs/ContextEngineering与MCP设计.md`）；仍不引入 LangChain
 
-**明确不补：** Gradio / Streamlit、LangChain、LoRA、语音/音频、Dify 同场景对照仓库。
+**明确不补：** Gradio / Streamlit、LangChain、LoRA、语音/音频、Dify 同场景对照仓库；不为 MCP/CE 建 `experiments/` 或第二套内核。
 
 ---
 
@@ -82,6 +83,7 @@
 | `docs/评估与安全作业.md`     | 第 27 / 47 课：怎么跑评测、读延迟 token、越权门禁 |
 | `docs/系统架构设计.md`       | 讲架构以本文为准                                  |
 | `docs/技术选型.md`           | 为何自研；明确不引入 LangChain 等                 |
+| `docs/ContextEngineering与MCP设计.md` | 压缩已落地；其余 CE/MCP 设计中；非课表全文 |
 | `docs/上线差距与改进建议.md` | 生产差距，不是课表                                |
 | `docs/需求分析.md` 等 V1/V2  | **历史归档**；课号对照以本文为准，勿当主教材      |
 
@@ -89,4 +91,4 @@
 
 ## 6. 一句话
 
-**RAG、提示词 schema 重试、约束工作流、进阶资料 Agent、OCR、评测与隔离、Vue 入口已经能上课；Gradio / LangChain / LoRA / 语音一律不做、不补。**
+**RAG、提示词 schema 重试、约束工作流、进阶资料 Agent、OCR、评测与隔离、Vue 入口、会话上下文压缩已经能上课；Gradio / LangChain / LoRA / 语音一律不做、不补。MCP / 跨会话 Memory 等以设计文档对照即可，勿讲成已落地。**

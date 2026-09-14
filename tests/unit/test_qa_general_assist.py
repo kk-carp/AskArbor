@@ -5,6 +5,7 @@ import pytest
 from backend.errors import UpstreamServiceError
 from backend.infra.generate import ChatResult, ChatUsage
 from backend.services import qa_service
+from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import GENERAL_ASSIST, GENERAL_ASSIST_NOTICE, MISS_ANSWER
 
 
@@ -39,7 +40,11 @@ def _patch_conversation(monkeypatch: pytest.MonkeyPatch) -> str:
         "get_or_create_conversation",
         lambda *_a, **_k: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)

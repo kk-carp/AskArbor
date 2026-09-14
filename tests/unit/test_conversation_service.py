@@ -10,6 +10,7 @@ from backend.services.conversation_service import (
     HistoryMessage,
     append_turn,
     get_or_create_conversation,
+    load_context_for_generate,
     load_recent_history,
 )
 
@@ -144,3 +145,104 @@ def test_delete_conversation_rejects_other_user(monkeypatch: pytest.MonkeyPatch)
     )
     with pytest.raises(ConversationNotFoundError):
         conversation_service.delete_conversation_for_user("u1", "c1")
+
+
+def _four_plus_two_messages() -> list[Message]:
+    """8 messages = 4 turns; with turns=2 keep=4 so first 4 are overflow."""
+    now = datetime.now(timezone.utc)
+    rows: list[Message] = []
+    for index in range(1, 5):
+        rows.append(
+            Message(
+                id=f"u{index}",
+                conversation_id="c1",
+                role="user",
+                content=f"q{index}",
+                created_at=now,
+            )
+        )
+        rows.append(
+            Message(
+                id=f"a{index}",
+                conversation_id="c1",
+                role="assistant",
+                content=f"a{index}",
+                created_at=now,
+            )
+        )
+    return rows
+
+
+def test_load_context_rolls_summary_when_over_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_service.settings, "conversation_history_turns", 2)
+    monkeypatch.setattr(conversation_service.settings, "conversation_compress_enabled", True)
+    monkeypatch.setattr(conversation_service.settings, "conversation_summary_max_chars", 2000)
+    conversation = Conversation(id="c1", user_id="u1", summary_message_count=0)
+    calls = {"n": 0}
+
+    def _fake_summarize(*, previous_summary, overflow):
+        calls["n"] += 1
+        assert previous_summary is None
+        assert len(overflow) == 4
+        return "用户问过 q1 q2"
+
+    monkeypatch.setattr(conversation_service, "_summarize_overflow", _fake_summarize)
+    session = _FakeSession(get_result=conversation, scalars_result=_four_plus_two_messages())
+    ctx = load_context_for_generate(session, conversation_id="c1")
+    assert calls["n"] == 1
+    assert conversation.context_summary == "用户问过 q1 q2"
+    assert conversation.summary_message_count == 4
+    assert session.flushed is True
+    assert ctx.summary == "用户问过 q1 q2"
+    assert [item.content for item in ctx.history] == ["q3", "a3", "q4", "a4"]
+
+    # second load: already covered overflow, no re-summarize
+    session2 = _FakeSession(get_result=conversation, scalars_result=_four_plus_two_messages())
+    ctx2 = load_context_for_generate(session2, conversation_id="c1")
+    assert calls["n"] == 1
+    assert ctx2.summary == "用户问过 q1 q2"
+
+
+def test_load_context_compress_disabled_keeps_truncate_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_service.settings, "conversation_history_turns", 2)
+    monkeypatch.setattr(conversation_service.settings, "conversation_compress_enabled", False)
+    conversation = Conversation(id="c1", user_id="u1")
+
+    def _boom(*, previous_summary, overflow):
+        raise AssertionError("must not summarize when disabled")
+
+    monkeypatch.setattr(conversation_service, "_summarize_overflow", _boom)
+    session = _FakeSession(get_result=conversation, scalars_result=_four_plus_two_messages())
+    ctx = load_context_for_generate(session, conversation_id="c1")
+    assert conversation.context_summary is None
+    assert (conversation.summary_message_count or 0) == 0
+    assert ctx.summary is None
+    assert [item.content for item in ctx.history] == ["q3", "a3", "q4", "a4"]
+
+
+def test_load_context_compress_failure_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_service.settings, "conversation_history_turns", 2)
+    monkeypatch.setattr(conversation_service.settings, "conversation_compress_enabled", True)
+    conversation = Conversation(
+        id="c1",
+        user_id="u1",
+        context_summary="旧摘要",
+        summary_message_count=0,
+    )
+
+    def _boom(*, previous_summary, overflow):
+        raise RuntimeError("upstream down")
+
+    monkeypatch.setattr(conversation_service, "_summarize_overflow", _boom)
+    session = _FakeSession(get_result=conversation, scalars_result=_four_plus_two_messages())
+    ctx = load_context_for_generate(session, conversation_id="c1")
+    assert conversation.summary_message_count == 0
+    assert conversation.context_summary == "旧摘要"
+    assert ctx.summary == "旧摘要"
+    assert len(ctx.history) == 4

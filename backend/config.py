@@ -61,6 +61,9 @@ class Settings(BaseSettings):
 
     # 生成阶段注入的最近完整轮数（每轮 = 用户 + 助手）；检索默认用本轮问句，追问时再拼上一轮用户原问
     conversation_history_turns: int = 3
+    # 超出窗口的旧轮次压入 conversation.context_summary；失败则纯截断
+    conversation_compress_enabled: bool = True
+    conversation_summary_max_chars: int = 2000
 
     # 课外搜索 / 薄弱点归纳（进阶资料推荐等学伴能力共用）
     learning_path_search_timeout_seconds: float = 15.0

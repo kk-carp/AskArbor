@@ -100,6 +100,20 @@ def _ensure_chunk_content_tsv(current_engine: Engine) -> None:
             _log.info("content_tsv backfill finished")
 
 
+def _ensure_conversation_summary_columns(current_engine: Engine) -> None:
+    """已有库补齐会话滚动摘要列（CE §3.1）。"""
+    if current_engine.dialect.name != "postgresql":
+        return
+    with current_engine.begin() as connection:
+        connection.execute(text("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS context_summary TEXT"))
+        connection.execute(
+            text(
+                "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS "
+                "summary_message_count INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+
+
 def init_db() -> None:
     """启用 pgvector、创建表结构，并初始化 student/company 空间。"""
     current_engine = init_engine()
@@ -114,6 +128,7 @@ def init_db() -> None:
     _ensure_user_position_key(current_engine)
     _ensure_document_content_hash(current_engine)
     _ensure_chunk_content_tsv(current_engine)
+    _ensure_conversation_summary_columns(current_engine)
 
 
     if SessionLocal is None:

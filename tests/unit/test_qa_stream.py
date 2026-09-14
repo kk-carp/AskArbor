@@ -6,6 +6,7 @@ from backend.errors import UpstreamServiceError
 from backend.infra.generate import ChatResult, ChatUsage
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
+from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import MISS_ANSWER
 
 
@@ -115,7 +116,11 @@ def test_iter_answer_events_rolls_back_on_stream_failure(
         "get_or_create_conversation",
         lambda _session, **_kwargs: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
