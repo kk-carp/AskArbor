@@ -1,5 +1,8 @@
 # V2-A 任务拆分
 
+> **历史归档**：学伴专项任务拆分，**不作为当前上课与验收的权威入口**。  
+> 上课请看 [FDE课程覆盖与缺口分析.md](./FDE课程覆盖与缺口分析.md)；文档索引见 [README.md](./README.md)。
+
 > **产品入口变更：** V2-A4 原「学习路径」API/前端已删除；请用进阶资料推荐验收（见 `docs/进阶资料推荐设计.md`）。下列 A4 步骤保留为历史任务说明。
 
 | 项    | 内容                                                         |
@@ -8,7 +11,7 @@
 | 对应架构 | `docs/系统架构设计.md` 第 10.2 节                                  |
 | 对应选型 | `docs/技术选型.md` 第 9.2 节（新依赖先改选型再改 `requirements.txt`）     |
 | 前置   | V1-T1～T7 已完成：登录成员授权、文档下线、会话、学员工单、Compose 整包            |
-| 原则   | 每个任务可单独用 API 验收；不重写 RAG 主链路；不预建空的 `agents/` 包；不做 Gradio/SSE |
+| 原则   | 每个任务可单独用 API 验收；不重写 RAG 主链路；不预建空的 `agents/` 包；不做 Gradio/Streamlit/LangChain/LoRA/语音 |
 
 
 ---
@@ -42,9 +45,9 @@ V2-A4 学习路径（V1 会话 + student 检索 + 课外搜索）
 | V2-A1 | 已完成      | `chunks` 有 path/language；`POST /code-ingest` 强制 student |
 | V2-A2 | 不做        | 代码调试助手与隔离沙箱已从学伴范围删除；无 `POST /debug` |
 | V2-A3 | 暂不实现    | 作业智能批改本阶段不建表、不提供接口 |
-| V2-A4 | 已完成      | `GET /learning-path`：课内 student 召回 + 课外搜索（白名单）     |
+| V2-A4 | 已完成      | `/advanced-resources` 进阶资料推荐（已取代 `GET /learning-path`） |
 | V2-A5 | 已完成      | `POST /ocr`：全员可用；截图文字作本轮依据；未命中库可 `screenshot_only` 不建单 |
-| V2-A6 | 本专项不做    | Gradio / SSE / 独立前端不做；学伴页接入现有 Vue                       |
+| V2-A6 | 本专项不做    | Gradio / Streamlit / 独立前端不做；SSE 已在 Vue 落地；学伴页接入现有 Vue |
 
 
 ---
@@ -229,7 +232,7 @@ pytest tests/unit/test_learning_path_service.py tests/unit/test_open_resource_se
 
 **目标：** 学员上传代码截图 / 公式图 → OCR 文本 → 进入既有 `/ask`。OCR 失败 ≠ 知识库未命中。
 
-**当前状态：** 未开始。可与 A1 并行。
+**当前状态：** 已完成（`POST /ocr`、`screenshot_only` / `ocr_failed` 语义已落地）。下文保留为历史任务说明。
 
 **开工前拍板：** OCR 引擎（建议 PaddleOCR）写入 `docs/技术选型.md` 第 9.2 节后再加依赖。
 
