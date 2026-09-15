@@ -10,6 +10,11 @@ from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import MISS_ANSWER
 
 
+@pytest.fixture(autouse=True)
+def _skip_memory_inject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(qa_service, "list_memories_for_inject", lambda *_a, **_k: [])
+
+
 def _events(monkeypatch: pytest.MonkeyPatch, **kwargs):
     return list(qa_service.iter_answer_events(["student"], "课程作业怎么交", **kwargs))
 

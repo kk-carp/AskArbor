@@ -1,15 +1,15 @@
 # Context Engineering 与 MCP Client 设计
 
 > **补充参考**：文档索引见 [README.md](./README.md)。  
-> 状态：**上下文压缩（§3.1）、本仓 Skill（§3.2）、长任务（§3.4）已落地**；跨会话 Memory / MCP Client **仍为设计中、代码未落地**。  
-> 已落地可对着讲的相关能力：会话滚动摘要、`skills/*/SKILL.md`、进阶资料白名单 Agent + `agent_tasks`、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)。  
+> 状态：**上下文压缩（§3.1）、本仓 Skill（§3.2）、跨会话 Memory（§3.3）、长任务（§3.4）已落地**；MCP Client **仍为设计中、代码未落地**。  
+> 已落地可对着讲的相关能力：会话滚动摘要、`skills/*/SKILL.md`、`user_memories` 显式记忆注入、进阶资料白名单 Agent + `agent_tasks`、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)、[14-跨会话Memory.md](./14-跨会话Memory.md)。  
 > 课程对照权威入口仍是 [01-课程覆盖.md](./01-课程覆盖.md)。
 
 
 | 项      | 内容                                                                                           |
 | ------ | -------------------------------------------------------------------------------------------- |
 | 目标     | 说明如何把 Context Engineering（压缩、本仓 Skill、跨会话 Memory、长任务状态）与 **MCP Client** 挂在现有 `/ask` 与进阶资料链路上 |
-| 本阶段    | 压缩、本仓 Skill、长任务已落地；Memory / MCP Client 仍为设计 |
+| 本阶段    | 压缩、本仓 Skill、跨会话 Memory、长任务已落地；MCP Client 仍为设计 |
 | MCP 角色 | **Client**：只调用预先登记的外部 MCP 工具；**不做** MCP Server；**不做** 公司 SkillHub                            |
 | 编排     | **自研**；**不引入** LangChain / LangGraph / LlamaIndex                                            |
 
@@ -66,17 +66,17 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 
 | CE 概念       | 现仓已有                                                                                        | 缺口（本文设计）                |
 | ----------- | ------------------------------------------------------------------------------------------- | ----------------------- |
-| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | Memory / MCP 等其余 CE 项未做 |
+| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | MCP 等其余 CE 项未做 |
 | Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub        |
-| Memory      | 会话 `messages`；进阶资料用 `list_recent_user_questions` 跨会话近期提问                                    | 无跨会话长期事实记忆表             |
-| 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | Memory / MCP 未做 |
+| Memory      | `user_memories` 显式 CRUD；`/ask` 生成前按预算注入（与会话摘要分开） | 无静默自动抽取；不进向量库 |
+| 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | MCP 未做 |
 
 
 **硬约束（实现时不得打破）**
 
 - 空间由服务端计算，过滤进向量检索 SQL 的 `WHERE`；客户端不得传 `space_ids`。
 - 未命中或低于阈值：默认拒答、不调 DeepSeek（学员实践参考等既有例外除外）。
-- 来源只来自召回记录；MCP / 搜索结果 **不得** 写入 `documents`/`chunks`，也不得冒充 KB `sources`。
+- 来源只来自召回记录；MCP / 搜索结果 / Memory **不得** 写入 `documents`/`chunks`，也不得冒充 KB `sources`。
 - 对话内容不自动入库；工具失败 ≠ `hit=false`，不建学员工单。
 - 公司 SkillHub、MCP Server、LangChain/LangGraph、任意 Shell / 未登记出网：不做。
 
@@ -84,8 +84,8 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 
 ```text
 POST /ask
-  → history（未来：summary + 最近 N 轮）
-  → 未来：user_memories 注入（token 预算）
+  → history（summary + 最近 N 轮）
+  → user_memories 注入（字符预算 Top-K）
   → retrieve(SQL space filter) → hit? DeepSeek_KB : refuse / general_assist
 
 /advanced-resources/plan
@@ -100,7 +100,7 @@ POST /ask
 
 ## 3. 四个能力的最小落地契约
 
-§3.1、§3.2、§3.4 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)）；§3.3 与 MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
+§3.1–§3.4 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[14-跨会话Memory.md](./14-跨会话Memory.md)、[13-长任务状态.md](./13-长任务状态.md)）；MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
 
 ### 3.1 上下文压缩（已落地）
 
@@ -134,13 +134,12 @@ POST /ask
 
 | 项   | 约定                                                       |
 | --- | -------------------------------------------------------- |
-| 表草案 | `user_memories(user_id, key, value, source, updated_at)` |
-| 写入  | 显式确认，或高置信抽取后对用户可见可删；默认保守                                 |
-| 注入  | 生成前按 token 预算取 Top-K；**永不**写入 `documents`/`chunks`       |
-| 隔离  | 不含 `company` 正文；学员侧审计不得泄露内部空间                            |
+| 表   | `user_memories(user_id, key, value, source, updated_at)`；`(user_id, key)` 唯一 |
+| 写入  | 第一期仅显式 HTTP upsert；用户可删；预留 `confirmed_extract` |
+| 注入  | `/ask` 生成前按条数/字符预算取 Top-K；独立 system 段；**永不**写入 `documents`/`chunks` |
+| 隔离  | 仅本人；白名单 key；不含 `company` 检索结果作 Memory |
 
-
-
+**状态：已落地。** 见 **[14-跨会话Memory.md](./14-跨会话Memory.md)**；运行时 `memory_service` + `generate` Memory 段。
 
 ### 3.4 长任务状态管理
 

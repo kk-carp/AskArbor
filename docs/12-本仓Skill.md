@@ -33,7 +33,7 @@
 
 ### 1.3 非目标
 
-- 公司 SkillHub、MCP Client/Server、跨会话 Memory、`agent_tasks`
+- 公司 SkillHub、MCP Client/Server；跨会话 Memory / `agent_tasks` 见 [14](./14-跨会话Memory.md) / [13](./13-长任务状态.md)
 - 客户端传 skill 名改权限；模型自由切换任意 skill
 - Skill 正文写入 `documents`/`chunks`
 - 热更新插件市场、任意 Shell、未登记出网

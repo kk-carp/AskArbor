@@ -130,6 +130,35 @@ def test_generate_answer_injects_conversation_summary_before_history(monkeypatch
     assert messages[2] == {"role": "user", "content": "作业怎么交"}
 
 
+def test_generate_answer_injects_user_memories_before_summary(monkeypatch) -> None:
+    captured = _patch_client(monkeypatch, "ok")
+    chunks = [
+        RetrievedChunk(
+            content="周五截止",
+            score=0.9,
+            document_id=uuid4(),
+            title="作业.md",
+            space_id="student",
+        )
+    ]
+    generate.generate_answer(
+        "那截止日期呢",
+        chunks,
+        history=[("user", "作业怎么交"), ("assistant", "在平台提交")],
+        conversation_summary="用户关心作业提交方式",
+        user_memories=[("learning_goal", "学完 RAG"), ("preferred_name", "小明")],
+    )
+    messages = captured["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "system"
+    assert "跨会话偏好" in messages[1]["content"]
+    assert "learning_goal: 学完 RAG" in messages[1]["content"]
+    assert "preferred_name: 小明" in messages[1]["content"]
+    assert messages[2]["role"] == "system"
+    assert "更早对话的摘要" in messages[2]["content"]
+    assert messages[3] == {"role": "user", "content": "作业怎么交"}
+
+
 def test_generate_answer_reads_usage_from_upstream(monkeypatch) -> None:
     usage = type("U", (), {"prompt_tokens": 120, "completion_tokens": 18})()
     _patch_client(monkeypatch, "ok", usage=usage)

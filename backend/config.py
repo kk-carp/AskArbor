@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     advanced_resources_skill: str = "advanced-resources"
     # 长任务（CE §3.4）：陈旧 running 超时后可标 failed 并 resume
     agent_task_stale_seconds: int = 1800
+    # 跨会话 Memory（CE §3.3）：显式写入，生成前按预算注入
+    memory_enabled: bool = True
+    memory_inject_max_items: int = 8
+    memory_value_max_chars: int = 500
+    memory_inject_max_chars: int = 1500
 
     @field_validator("app_env")
     @classmethod

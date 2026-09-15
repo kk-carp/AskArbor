@@ -1,9 +1,16 @@
 from uuid import uuid4
 
+import pytest
+
 from backend.schemas import OwnerInfo
 from backend.services import qa_service
 from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import MISS_ANSWER
+
+
+@pytest.fixture(autouse=True)
+def _skip_memory_inject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(qa_service, "list_memories_for_inject", lambda *_a, **_k: [])
 
 
 def _conversation_session():

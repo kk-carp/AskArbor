@@ -10,6 +10,11 @@ from backend.services.conversation_service import ContextForGenerate, HistoryMes
 from backend.services.qa_service import MISS_ANSWER
 
 
+@pytest.fixture(autouse=True)
+def _skip_memory_inject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(qa_service, "list_memories_for_inject", lambda *_a, **_k: [])
+
+
 def test_answer_question_with_conversation_persists_miss(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -203,7 +208,15 @@ def test_answer_question_passes_history_to_generate(
         ],
     )
 
-    def _fake_generate(question, chunks, history=None, *, screenshot_text=None, conversation_summary=None):
+    def _fake_generate(
+        question,
+        chunks,
+        history=None,
+        *,
+        screenshot_text=None,
+        conversation_summary=None,
+        user_memories=None,
+    ):
         captured["question"] = question
         captured["history"] = history
         return ChatResult(text="本轮答案", usage=ChatUsage(prompt_tokens=20, completion_tokens=6))

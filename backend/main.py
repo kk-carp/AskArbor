@@ -24,6 +24,7 @@ from backend.routes import (
     conversations,
     documents,
     health,
+    memories,
     metrics,
     ocr,
     tickets,
@@ -107,6 +108,7 @@ app.include_router(ask.router)
 app.include_router(ocr.router)
 app.include_router(advanced_resources.router)
 app.include_router(conversations.router)
+app.include_router(memories.router)
 app.include_router(tickets.router)
 app.include_router(topic_owners.router)
 

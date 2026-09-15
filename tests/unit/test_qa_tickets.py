@@ -10,6 +10,11 @@ from backend.services.qa_service import MISS_ANSWER
 from backend.services.ticket_service import TicketError
 
 
+@pytest.fixture(autouse=True)
+def _skip_memory_inject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(qa_service, "list_memories_for_inject", lambda *_a, **_k: [])
+
+
 def test_student_miss_creates_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     conversation_id = str(uuid4())
     ticket_id = str(uuid4())

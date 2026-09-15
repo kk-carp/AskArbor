@@ -272,6 +272,22 @@ class AdvancedResourcesTaskLatestResponse(BaseModel):
     weak_points: list[str] = []
 
 
+class UpsertMemoryRequest(BaseModel):
+    value: str = Field(..., min_length=1)
+
+
+class MemoryResponse(BaseModel):
+    key: str
+    value: str
+    source: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MemoryKeysResponse(BaseModel):
+    keys: list[str]
+
+
 class HealthResponse(BaseModel):
     api: bool
     database: bool

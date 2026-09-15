@@ -228,7 +228,15 @@ def test_answer_question_screenshot_only_calls_generate_without_ticket_semantics
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
     seen: dict[str, object] = {}
 
-    def _fake_generate(question, chunks, history=None, *, screenshot_text=None, conversation_summary=None):
+    def _fake_generate(
+        question,
+        chunks,
+        history=None,
+        *,
+        screenshot_text=None,
+        conversation_summary=None,
+        user_memories=None,
+    ):
         seen["chunks"] = chunks
         seen["screenshot_text"] = screenshot_text
         return _chat("请在 .env 配置 DEEPSEEK_API_KEY")
@@ -280,7 +288,15 @@ def test_answer_question_hit_passes_screenshot_to_generate(
     )
     seen: dict[str, object] = {}
 
-    def _fake_generate(question, chunks, history=None, *, screenshot_text=None, conversation_summary=None):
+    def _fake_generate(
+        question,
+        chunks,
+        history=None,
+        *,
+        screenshot_text=None,
+        conversation_summary=None,
+        user_memories=None,
+    ):
         seen["screenshot_text"] = screenshot_text
         seen["n_chunks"] = len(chunks)
         return _chat("答案")

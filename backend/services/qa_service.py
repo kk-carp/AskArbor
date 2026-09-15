@@ -32,6 +32,7 @@ from backend.services.conversation_service import (
     get_or_create_conversation,
     load_context_for_generate,
 )
+from backend.services.memory_service import list_memories_for_inject
 from backend.services.ticket_service import create_ticket_for_student
 from backend.services.topic_owner_service import lookup_owner_for_employee
 
@@ -209,6 +210,7 @@ def _collect_stream(
     screenshot_text: str | None,
     *,
     conversation_summary: str | None = None,
+    user_memories: list[tuple[str, str]] | None = None,
 ) -> Iterator[tuple[str, dict] | ChatResult]:
     generated: ChatResult | None = None
     for item in generate_answer_stream(
@@ -217,6 +219,7 @@ def _collect_stream(
         history=history,
         screenshot_text=screenshot_text,
         conversation_summary=conversation_summary,
+        user_memories=user_memories,
     ):
         if isinstance(item, str):
             yield ("delta", {"text": item})
@@ -326,6 +329,7 @@ def iter_answer_events(
         ctx = load_context_for_generate(session, conversation_id=conversation.id)
         history_tuples = [(item.role, item.content) for item in ctx.history]
         conversation_summary = ctx.summary
+        user_memories = list_memories_for_inject(session, user_id=user_id)
 
         def _miss_result() -> AskResult:
             append_turn(
@@ -391,6 +395,7 @@ def iter_answer_events(
                         normalized_question,
                         history=history_tuples,
                         conversation_summary=conversation_summary,
+                        user_memories=user_memories,
                     ):
                         if isinstance(item, str):
                             yield ("delta", {"text": item})
@@ -475,6 +480,7 @@ def iter_answer_events(
                 history_tuples,
                 shot,
                 conversation_summary=conversation_summary,
+                user_memories=user_memories,
             ):
                 if isinstance(item, ChatResult):
                     generated = item
@@ -619,6 +625,7 @@ def answer_question(
         ctx = load_context_for_generate(session, conversation_id=conversation.id)
         history_tuples = [(item.role, item.content) for item in ctx.history]
         conversation_summary = ctx.summary
+        user_memories = list_memories_for_inject(session, user_id=user_id)
 
         def _miss_result() -> AskResult:
             append_turn(
@@ -673,6 +680,7 @@ def answer_question(
                         normalized_question,
                         history=history_tuples,
                         conversation_summary=conversation_summary,
+                        user_memories=user_memories,
                     )
                 except UpstreamServiceError:
                     session.rollback()
@@ -736,6 +744,7 @@ def answer_question(
                 history=history_tuples,
                 screenshot_text=shot,
                 conversation_summary=conversation_summary,
+                user_memories=user_memories,
             )
         except UpstreamServiceError:
             session.rollback()

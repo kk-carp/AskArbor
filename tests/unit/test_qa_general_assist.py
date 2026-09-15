@@ -9,6 +9,11 @@ from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import GENERAL_ASSIST, GENERAL_ASSIST_NOTICE, MISS_ANSWER
 
 
+@pytest.fixture(autouse=True)
+def _skip_memory_inject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(qa_service, "list_memories_for_inject", lambda *_a, **_k: [])
+
+
 def _chat(text: str, prompt: int = 8, completion: int = 3) -> ChatResult:
     return ChatResult(text=text, usage=ChatUsage(prompt_tokens=prompt, completion_tokens=completion))
 
