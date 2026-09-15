@@ -30,7 +30,7 @@
 | [11-T13验收.md](./11-T13验收.md) | T13 验收脚本断言说明 |
 | [12-本仓Skill.md](./12-本仓Skill.md) | 本仓 Skill 包清单（已落地） |
 | [13-长任务状态.md](./13-长任务状态.md) | 进阶资料 plan 的 `agent_tasks` 持久化与续跑（已落地；含课上讲解稿） |
-| [14-跨会话Memory.md](./14-跨会话Memory.md) | 显式 `user_memories` + `/ask` 注入（已落地） |
+| [14-跨会话Memory.md](./14-跨会话Memory.md) | 显式 `user_memories` + `/ask` 注入 + 问答页入口（已落地） |
 
 **评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)
 

@@ -187,7 +187,7 @@ onUnmounted(() => {
         <p class="prose">{{ report.capability_analysis || "暂无足够提问记录生成画像。" }}</p>
       </section>
 
-      <section v-if="report.weak_points_detail.length" class="block">
+      <section v-if="report.weak_points_detail?.length" class="block">
         <h3>可能的薄弱点</h3>
         <ul class="weak-list">
           <li v-for="item in report.weak_points_detail" :key="item.topic">
@@ -200,7 +200,7 @@ onUnmounted(() => {
       <section class="block">
         <h3>推荐资料与理由</h3>
         <el-empty
-          v-if="!report.materials.length"
+          v-if="!(report.materials?.length)"
           description="暂无通过筛选的资料"
           :image-size="56"
         />
@@ -230,7 +230,7 @@ onUnmounted(() => {
         </ul>
       </section>
 
-      <section v-if="report.next_steps.length" class="block">
+      <section v-if="report.next_steps?.length" class="block">
         <h3>下一步做什么</h3>
         <ol class="next-list">
           <li v-for="(item, index) in report.next_steps" :key="index">{{ item }}</li>
@@ -239,7 +239,7 @@ onUnmounted(() => {
     </article>
 
     <section
-      v-else-if="!loading && meta && (meta.course.length || meta.external.length)"
+      v-else-if="!loading && meta && ((meta.course?.length || 0) || (meta.external?.length || 0))"
       class="fallback"
     >
       <el-alert

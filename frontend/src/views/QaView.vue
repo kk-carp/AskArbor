@@ -5,6 +5,7 @@ import { askQuestionStream, askWithImage, deleteConversation, listConversations,
 import AskComposer from "@/components/qa/AskComposer.vue";
 import ConversationList from "@/components/qa/ConversationList.vue";
 import DisclaimerNote from "@/components/DisclaimerNote.vue";
+import MemoryDialog from "@/components/qa/MemoryDialog.vue";
 import MessagePane from "@/components/qa/MessagePane.vue";
 import { useAskMetaStore } from "@/stores/askMeta";
 import { useMessageImageStore } from "@/stores/messageImages";
@@ -19,6 +20,7 @@ const currentConversationId = ref<string | null>(null);
 const listLoading = ref(false);
 const messageLoading = ref(false);
 const asking = ref(false);
+const memoryDialogVisible = ref(false);
 const pendingQuestion = ref("");
 const pendingImageUrl = ref<string | null>(null);
 const pendingAnswer = ref("");
@@ -261,10 +263,15 @@ onMounted(async () => {
         />
       </div>
       <div class="composer-dock">
-        <AskComposer :loading="asking" @submit="handleAsk" />
+        <AskComposer
+          :loading="asking"
+          @submit="handleAsk"
+          @manage-memory="memoryDialogVisible = true"
+        />
         <DisclaimerNote class="qa-disclaimer" />
       </div>
     </section>
+    <MemoryDialog v-model:visible="memoryDialogVisible" />
   </div>
 </template>
 

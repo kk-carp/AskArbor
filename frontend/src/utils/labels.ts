@@ -35,6 +35,16 @@ export function ticketStatusLabel(status: TicketStatus): string {
   return status === "open" ? "待回复" : "已回复";
 }
 
+export function memoryKeyLabel(key: string): string {
+  const map: Record<string, string> = {
+    preferred_name: "称呼",
+    learning_goal: "学习目标",
+    preferred_language: "偏好语言",
+    note: "备注",
+  };
+  return map[key] || key;
+}
+
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) {
     return "-";

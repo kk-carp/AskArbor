@@ -42,6 +42,10 @@ export function notifyUnauthorizedIfNeeded(status: number, path: string): void {
   }
 }
 
+function isLoginRequest(path: string): boolean {
+  return path === "/login" || path.startsWith("/login?");
+}
+
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;

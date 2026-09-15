@@ -218,6 +218,23 @@ export interface AdvancedResourcesToolsResponse {
   tools: AdvancedResourceToolSpec[];
 }
 
+/** 跨会话 Memory（CE §3.3）；白名单 key */
+export type MemoryKey = "preferred_name" | "learning_goal" | "preferred_language" | "note";
+
+/** GET /memories */
+export interface MemoryItem {
+  key: string;
+  value: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** GET /memories/keys */
+export interface MemoryKeysResponse {
+  keys: string[];
+}
+
 /** GET /metrics：当前进程启动后累计，重启清零 */
 export interface MetricsSnapshot {
   ask_total: number;

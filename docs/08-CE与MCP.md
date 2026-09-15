@@ -68,7 +68,7 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 | ----------- | ------------------------------------------------------------------------------------------- | ----------------------- |
 | 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | MCP 等其余 CE 项未做 |
 | Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub        |
-| Memory      | `user_memories` 显式 CRUD；`/ask` 生成前按预算注入（与会话摘要分开） | 无静默自动抽取；不进向量库 |
+| Memory      | `user_memories` 显式 CRUD（API + 问答页入口）；`/ask` 生成前按预算注入 | 无静默自动抽取；不进向量库 |
 | 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | MCP 未做 |
 
 
@@ -135,11 +135,11 @@ POST /ask
 | 项   | 约定                                                       |
 | --- | -------------------------------------------------------- |
 | 表   | `user_memories(user_id, key, value, source, updated_at)`；`(user_id, key)` 唯一 |
-| 写入  | 第一期仅显式 HTTP upsert；用户可删；预留 `confirmed_extract` |
+| 写入  | 第一期仅显式 upsert（HTTP + 问答页「记忆」弹窗）；用户可删；预留 `confirmed_extract` |
 | 注入  | `/ask` 生成前按条数/字符预算取 Top-K；独立 system 段；**永不**写入 `documents`/`chunks` |
 | 隔离  | 仅本人；白名单 key；不含 `company` 检索结果作 Memory |
 
-**状态：已落地。** 见 **[14-跨会话Memory.md](./14-跨会话Memory.md)**；运行时 `memory_service` + `generate` Memory 段。
+**状态：已落地。** 见 **[14-跨会话Memory.md](./14-跨会话Memory.md)**；运行时 `memory_service` + `generate` Memory 段；前端 `MemoryDialog`。
 
 ### 3.4 长任务状态管理
 
@@ -192,13 +192,13 @@ POST /ask
 
 
 
-## 6. 建议实现顺序（以后做，本阶段不执行）
+## 6. 落地顺序（对照）
 
 1. ~~上下文压缩（会话加载 +~~ `generate` ~~消息组装）~~ **已落地**
 2. ~~本仓 Skill 包清单（包装现有工具，无新出网）~~ **已落地**（见 [12-本仓Skill.md](./12-本仓Skill.md)）
-3. Memory 表 + 注入预算
+3. ~~Memory 表 + 注入预算~~ **已落地**（见 [14-跨会话Memory.md](./14-跨会话Memory.md)）
 4. ~~`agent_tasks` 持久化进阶资料 plan~~ **已落地**（见 [13-长任务状态.md](./13-长任务状态.md)）
-5. MCP Client 适配器 + **一个**只读外部工具登记演示
+5. MCP Client 适配器 + **一个**只读外部工具登记演示（**未做**）
 
 每步单独可测；不得削弱空间隔离与拒答语义。新依赖须有该步直接用途，并先改 [04-技术选型.md](./04-技术选型.md)。
 
@@ -213,6 +213,10 @@ POST /ask
 | ------------------------------ | --------------------------- |
 | [01-课程覆盖.md](./01-课程覆盖.md)     | 上课权威；本文为设计补充                |
 | [06-进阶资料推荐.md](./06-进阶资料推荐.md) | 已落地 Agent；长任务 / Skill 的挂接母体 |
+| [07-上下文压缩.md](./07-上下文压缩.md) | 已落地 §3.1 |
+| [12-本仓Skill.md](./12-本仓Skill.md) | 已落地 §3.2 |
+| [13-长任务状态.md](./13-长任务状态.md) | 已落地 §3.4 |
+| [14-跨会话Memory.md](./14-跨会话Memory.md) | 已落地 §3.3 |
 | [03-系统架构.md](./03-系统架构.md)     | 架构权威；实现前扩展点仍服从本文约束          |
 | [04-技术选型.md](./04-技术选型.md)     | 自研与禁止项                      |
 | [09-上线差距.md](./09-上线差距.md)     | 生产差距；非课表                    |
@@ -224,4 +228,4 @@ POST /ask
 
 ## 8. 一句话
 
-**CE / MCP：上下文压缩、本仓 Skill、长任务已落地；Memory / MCP Client 仍以本文设计对照，勿讲成已全部实现，也勿为此引入 LangChain。**
+**CE / MCP：上下文压缩、本仓 Skill、跨会话 Memory、长任务已落地；MCP Client 仍以本文设计对照，勿讲成已实现，也勿为此引入 LangChain。**

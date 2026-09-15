@@ -16,6 +16,8 @@ function isApiGet(url: string): boolean {
     url.startsWith("/conversations/") ||
     url === "/tickets" ||
     url === "/topic_owners" ||
+    url === "/memories" ||
+    url === "/memories/keys" ||
     url === "/advanced-resources/tools" ||
     url.startsWith("/advanced-resources/")
   );
@@ -36,6 +38,8 @@ function isApiWrite(url: string): boolean {
     url === "/tickets" ||
     url.startsWith("/tickets/") ||
     url === "/topic_owners" ||
+    url === "/memories" ||
+    url.startsWith("/memories/") ||
     url === "/advanced-resources/run" ||
     url === "/advanced-resources/plan" ||
     url.startsWith("/advanced-resources/")
@@ -53,7 +57,7 @@ export default defineConfig({
     port: 5173,
     host: "127.0.0.1",
     proxy: {
-      "^/(login|logout|me|ask|ocr|documents|code-ingest|conversations|tickets|topic_owners|advanced-resources|health|metrics)(/.*)?$": {
+      "^/(login|logout|me|ask|ocr|documents|code-ingest|conversations|tickets|topic_owners|memories|advanced-resources|health|metrics)(/.*)?$": {
         target: apiTarget,
         changeOrigin: true,
         bypass(req: IncomingMessage) {

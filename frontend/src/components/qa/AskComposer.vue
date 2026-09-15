@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { Picture, Top } from "@element-plus/icons-vue";
+import { CollectionTag, Picture, Top } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 
 interface AskForm {
@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [payload: { question: string; image: File | null }];
+  "manage-memory": [];
 }>();
 
 const form = reactive<AskForm>({ question: "" });
@@ -109,6 +110,10 @@ defineExpose({ resetQuestion });
         <el-button text :disabled="loading" @click="pickImage">
           <el-icon><Picture /></el-icon>
           截图
+        </el-button>
+        <el-button text :disabled="loading" @click="emit('manage-memory')">
+          <el-icon><CollectionTag /></el-icon>
+          记忆
         </el-button>
         <span class="hint"></span>
         <span class="count">{{ form.question.length }} / 2000</span>

@@ -155,9 +155,10 @@ export async function askQuestionStream(
     }
   }
   if (dataLines.length) flush();
-  if (streamError) {
-    notifyUnauthorizedIfNeeded(streamError.status || 500, "/ask/stream");
-    throw new ApiError(streamError.status || 500, streamError.detail || "问答处理失败");
+  const failed = streamError as { status?: number; detail?: string } | null;
+  if (failed) {
+    notifyUnauthorizedIfNeeded(failed.status || 500, "/ask/stream");
+    throw new ApiError(failed.status || 500, failed.detail || "问答处理失败");
   }
 }
 
