@@ -395,6 +395,7 @@ def test_search_course_ignores_company(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_get_advanced_resources_uses_cache_until_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
     from backend.schemas import ExternalRecommendation
+    from backend.services import agent_task_service as tasks
 
     svc.clear_advanced_resources_cache()
     builds = {"count": 0}
@@ -402,7 +403,7 @@ def test_get_advanced_resources_uses_cache_until_refresh(monkeypatch: pytest.Mon
 
     def _plan(**_kwargs):
         builds["count"] += 1
-        return svc.PlanResult(
+        result = svc.PlanResult(
             weak_points=["动态规划"],
             course=[],
             external=[
@@ -417,6 +418,23 @@ def test_get_advanced_resources_uses_cache_until_refresh(monkeypatch: pytest.Mon
             report={"title": f"报告-{builds['count']}", "materials": []},
             from_cache=False,
         )
+        state = tasks.empty_plan_state()
+        state["topics"] = list(result.weak_points)
+        state["external"] = [
+            {
+                "title": result.external[0].title,
+                "url": result.external[0].url,
+                "host": result.external[0].host,
+                "kind": result.external[0].kind,
+                "snippet": result.external[0].snippet,
+            }
+        ]
+        state["report"] = result.report
+        state["phase"] = tasks.PHASE_DONE
+        task = tasks.memory_create_task(user_id="u1", state=state)
+        tasks.memory_mark_completed(task, state)
+        result.task_id = task.id
+        return result
 
     monkeypatch.setattr(svc, "plan_recommendations", _plan)
 
@@ -435,13 +453,21 @@ def test_get_advanced_resources_uses_cache_until_refresh(monkeypatch: pytest.Mon
 
 
 def test_empty_plan_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services import agent_task_service as tasks
+
     svc.clear_advanced_resources_cache()
     builds = {"count": 0}
     monkeypatch.setattr(svc, "require_companion_spaces", lambda spaces: spaces)
 
     def _plan(**_kwargs):
         builds["count"] += 1
-        return svc.PlanResult(weak_points=[], course=[], external=[], report=None)
+        result = svc.PlanResult(weak_points=[], course=[], external=[], report=None)
+        state = tasks.empty_plan_state()
+        state["phase"] = tasks.PHASE_DONE
+        task = tasks.memory_create_task(user_id="u1", state=state)
+        tasks.memory_mark_completed(task, state)
+        result.task_id = task.id
+        return result
 
     monkeypatch.setattr(svc, "plan_recommendations", _plan)
 

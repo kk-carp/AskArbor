@@ -14,8 +14,10 @@ from backend.schemas import (
     AdvancedResourcesPlanRequest,
     AdvancedResourcesPlanResponse,
     AdvancedResourcesReport,
+    AdvancedResourcesResumeRequest,
     AdvancedResourcesRunRequest,
     AdvancedResourcesRunResponse,
+    AdvancedResourcesTaskLatestResponse,
     AdvancedResourcesToolsResponse,
     AdvancedResourceToolSpec,
     AdvancedResourceStep,
@@ -23,6 +25,7 @@ from backend.schemas import (
 from backend.services.advanced_resources_service import (
     get_advanced_resources,
     get_cached_advanced_resources,
+    get_latest_task_view,
     list_tools,
     run_named_tool,
 )
@@ -51,6 +54,7 @@ def _plan_response(result) -> AdvancedResourcesPlanResponse:
         message=result.message,
         report=report,
         from_cache=bool(getattr(result, "from_cache", False)),
+        task_id=getattr(result, "task_id", None),
     )
 
 
@@ -63,6 +67,35 @@ async def advanced_resources_tools(request: Request) -> AdvancedResourcesToolsRe
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     specs = [AdvancedResourceToolSpec(**item) for item in list_tools()]
     return AdvancedResourcesToolsResponse(tools=specs)
+
+
+@router.get(
+    "/advanced-resources/tasks/latest",
+    response_model=AdvancedResourcesTaskLatestResponse,
+)
+async def advanced_resources_task_latest(
+    request: Request,
+    task_id: str | None = None,
+) -> AdvancedResourcesTaskLatestResponse:
+    context = _require_user(request)
+    try:
+        require_companion_spaces(context.allowed_spaces)
+        view = get_latest_task_view(user_id=context.user.id, task_id=task_id)
+    except CompanionForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return AdvancedResourcesTaskLatestResponse(
+        task_id=view.get("task_id"),
+        status=view.get("status"),
+        step_index=int(view.get("step_index") or 0),
+        phase=view.get("phase"),
+        error_type=view.get("error_type"),
+        message=view.get("message"),
+        resumable=bool(view.get("resumable")),
+        steps=[AdvancedResourceStep(**step) for step in (view.get("steps") or [])],
+        weak_points=[str(x) for x in (view.get("weak_points") or [])],
+    )
 
 
 @router.post("/advanced-resources/run", response_model=AdvancedResourcesRunResponse)
@@ -111,6 +144,8 @@ async def advanced_resources_plan(
             user_id=context.user.id,
             allowed_spaces=context.allowed_spaces,
             refresh=body.refresh,
+            resume=body.resume,
+            task_id=body.task_id,
             weak_points=body.weak_points,
         )
     except CompanionForbiddenError as exc:
@@ -123,6 +158,34 @@ async def advanced_resources_plan(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="进阶资料推荐规划失败") from exc
+
+    return _plan_response(result)
+
+
+@router.post("/advanced-resources/plan/resume", response_model=AdvancedResourcesPlanResponse)
+async def advanced_resources_plan_resume(
+    request: Request,
+    payload: AdvancedResourcesResumeRequest | None = None,
+) -> AdvancedResourcesPlanResponse:
+    context = _require_user(request)
+    body = payload or AdvancedResourcesResumeRequest()
+    try:
+        result = get_advanced_resources(
+            user_id=context.user.id,
+            allowed_spaces=context.allowed_spaces,
+            resume=True,
+            task_id=body.task_id,
+        )
+    except CompanionForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ServiceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except UpstreamServiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="进阶资料推荐续跑失败") from exc
 
     return _plan_response(result)
 
@@ -142,6 +205,8 @@ async def advanced_resources_plan_stream(
     spaces = list(context.allowed_spaces)
     weak_points = body.weak_points
     refresh = bool(body.refresh)
+    resume = bool(body.resume)
+    task_id = body.task_id
 
     def event_gen() -> Iterator[str]:
         try:
@@ -151,8 +216,8 @@ async def advanced_resources_plan_stream(
             yield _sse_pack("done", {})
             return
 
-        # 缓存命中：直接返回 final（含历史 steps），不假装重跑工具
-        if not refresh:
+        # 非 resume：已完成任务命中则直接 final（SSE 不重放历史步）
+        if not refresh and not resume:
             cached = get_cached_advanced_resources(user_id)
             if cached is not None:
                 response = _plan_response(cached)
@@ -167,13 +232,17 @@ async def advanced_resources_plan_stream(
                 result = get_advanced_resources(
                     user_id=user_id,
                     allowed_spaces=spaces,
-                    refresh=True,
+                    refresh=True if not resume else False,
+                    resume=resume,
+                    task_id=task_id,
                     weak_points=weak_points,
                     on_step=lambda step: q.put(("step", step)),
                 )
                 q.put(("final", result))
             except CompanionForbiddenError as exc:
                 q.put(("error", {"status": 403, "detail": str(exc)}))
+            except ValueError as exc:
+                q.put(("error", {"status": 400, "detail": str(exc)}))
             except ServiceUnavailableError as exc:
                 q.put(("error", {"status": 503, "detail": str(exc)}))
             except UpstreamServiceError as exc:

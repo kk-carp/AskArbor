@@ -192,3 +192,39 @@ class TopicOwner(Base):
     keywords: Mapped[str] = mapped_column(Text, nullable=False, default="")
     owner_name: Mapped[str] = mapped_column(String(64), nullable=False)
     contact: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class AgentTaskStatus(str, Enum):
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class AgentTask(Base):
+    """长任务状态（CE §3.4）；第一期仅进阶资料 plan，状态以 DB 为准。"""
+
+    __tablename__ = "agent_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=AgentTaskStatus.running.value,
+        index=True,
+    )
+    step_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    state_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )

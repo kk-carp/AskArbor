@@ -207,6 +207,12 @@ class AdvancedResourcesRunResponse(BaseModel):
 class AdvancedResourcesPlanRequest(BaseModel):
     weak_points: list[str] | None = None
     refresh: bool = False
+    resume: bool = False
+    task_id: str | None = None
+
+
+class AdvancedResourcesResumeRequest(BaseModel):
+    task_id: str | None = None
 
 
 class AdvancedResourceStep(BaseModel):
@@ -251,6 +257,19 @@ class AdvancedResourcesPlanResponse(BaseModel):
     message: str | None = None
     report: AdvancedResourcesReport | None = None
     from_cache: bool = False
+    task_id: str | None = None
+
+
+class AdvancedResourcesTaskLatestResponse(BaseModel):
+    task_id: str | None = None
+    status: str | None = None
+    step_index: int = 0
+    phase: str | None = None
+    error_type: str | None = None
+    message: str | None = None
+    resumable: bool = False
+    steps: list[AdvancedResourceStep] = []
+    weak_points: list[str] = []
 
 
 class HealthResponse(BaseModel):

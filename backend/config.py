@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     # 本仓 Skill 包（CE §3.2）：仓库内 skills/*/SKILL.md
     skills_dir: str = "skills"
     advanced_resources_skill: str = "advanced-resources"
+    # 长任务（CE §3.4）：陈旧 running 超时后可标 failed 并 resume
+    agent_task_stale_seconds: int = 1800
 
     @field_validator("app_env")
     @classmethod

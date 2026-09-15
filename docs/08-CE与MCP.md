@@ -1,15 +1,15 @@
 # Context Engineering 与 MCP Client 设计
 
 > **补充参考**：文档索引见 [README.md](./README.md)。  
-> 状态：**上下文压缩（§3.1）与本仓 Skill（§3.2）已落地**；跨会话 Memory / 长任务持久化 / MCP Client **仍为设计中、代码未落地**。  
-> 已落地可对着讲的相关能力：会话最近 N 轮 + 滚动摘要、`skills/*/SKILL.md` 工具白名单、进阶资料白名单 Agent、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)。  
+> 状态：**上下文压缩（§3.1）、本仓 Skill（§3.2）、长任务（§3.4）已落地**；跨会话 Memory / MCP Client **仍为设计中、代码未落地**。  
+> 已落地可对着讲的相关能力：会话滚动摘要、`skills/*/SKILL.md`、进阶资料白名单 Agent + `agent_tasks`、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)。  
 > 课程对照权威入口仍是 [01-课程覆盖.md](./01-课程覆盖.md)。
 
 
 | 项      | 内容                                                                                           |
 | ------ | -------------------------------------------------------------------------------------------- |
 | 目标     | 说明如何把 Context Engineering（压缩、本仓 Skill、跨会话 Memory、长任务状态）与 **MCP Client** 挂在现有 `/ask` 与进阶资料链路上 |
-| 本阶段    | 上下文压缩与本仓 Skill 已落地；Memory / 长任务 / MCP Client 仍为设计 |
+| 本阶段    | 压缩、本仓 Skill、长任务已落地；Memory / MCP Client 仍为设计 |
 | MCP 角色 | **Client**：只调用预先登记的外部 MCP 工具；**不做** MCP Server；**不做** 公司 SkillHub                            |
 | 编排     | **自研**；**不引入** LangChain / LangGraph / LlamaIndex                                            |
 
@@ -64,12 +64,12 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 ## 2. 现状映射（对着现码讲）
 
 
-| CE 概念       | 现仓已有                                                                                     | 缺口（本文设计）           |
-| ----------- | ---------------------------------------------------------------------------------------- | ------------------ |
-| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩 | Memory / MCP 等其余 CE 项未做 |
-| Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub |
-| Memory      | 会话 `messages`；进阶资料用 `list_recent_user_questions` 跨会话近期提问                                 | 无跨会话长期事实记忆表        |
-| 长任务状态       | 进阶资料单次 `plan` + 进程内 `_plan_cache` + SSE                                                  | 无持久化 task / 断点续跑   |
+| CE 概念       | 现仓已有                                                                                        | 缺口（本文设计）                |
+| ----------- | ------------------------------------------------------------------------------------------- | ----------------------- |
+| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | Memory / MCP 等其余 CE 项未做 |
+| Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub        |
+| Memory      | 会话 `messages`；进阶资料用 `list_recent_user_questions` 跨会话近期提问                                    | 无跨会话长期事实记忆表             |
+| 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | Memory / MCP 未做 |
 
 
 **硬约束（实现时不得打破）**
@@ -91,7 +91,7 @@ POST /ask
 /advanced-resources/plan
   → whitelist tools（Skill 约束子集）
   → 未来：MCP Client → 仅登记过的外部 MCP
-  → 未来：agent_tasks 持久化；SSE 只推事件
+  → agent_tasks 持久化；SSE 只推事件
 ```
 
 ---
@@ -100,37 +100,34 @@ POST /ask
 
 ## 3. 四个能力的最小落地契约
 
-§3.1、§3.2 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)）；§3.3–§3.4 与 MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
+§3.1、§3.2、§3.4 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)）；§3.3 与 MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
 
 ### 3.1 上下文压缩（已落地）
 
-| 项 | 约定 |
-| --- | --- |
-| 触发 | 消息数超过最近 N 轮窗口后，把挤出窗口的旧轮次压成 `conversation.context_summary`（滚动更新；`summary_message_count` 避免重压） |
-| 注入 | 摘要（system 段）+ 最近 N 轮原文进 `generate`；配置见 `conversation_compress_enabled` / `conversation_summary_max_chars` |
-| 检索 | 仍只用当前问 + 追问拼句（`followup`）；**摘要不进向量库** |
-| 失败 | 压缩失败则退回纯截断（保留旧摘要若有）；不改变命中 / 拒答语义 |
 
-实现入口：`load_context_for_generate`（[`backend/services/conversation_service.py`](../backend/services/conversation_service.py)）。  
+| 项   | 约定                                                                                                        |
+| --- | --------------------------------------------------------------------------------------------------------- |
+| 触发  | 消息数超过最近 N 轮窗口后，把挤出窗口的旧轮次压成 `conversation.context_summary`（滚动更新；`summary_message_count` 避免重压）              |
+| 注入  | 摘要（system 段）+ 最近 N 轮原文进 `generate`；配置见 `conversation_compress_enabled` / `conversation_summary_max_chars` |
+| 检索  | 仍只用当前问 + 追问拼句（`followup`）；**摘要不进向量库**                                                                     |
+| 失败  | 压缩失败则退回纯截断（保留旧摘要若有）；不改变命中 / 拒答语义                                                                          |
+
+
+实现入口：`load_context_for_generate`（`[backend/services/conversation_service.py](../backend/services/conversation_service.py)`）。  
 详细设计见 **[07-上下文压缩.md](./07-上下文压缩.md)**。
-
-
-
 
 ### 3.2 Skill（本仓教学义，≠ SkillHub）
 
-| 项 | 约定 |
-| --- | --- |
-| 形态 | 仓库内 `skills/<name>/SKILL.md`：能力边界 + 允许的**已有**工具名 + 可选附加系统提示 |
-| 运行时 | 选包 → 约束 `run_tool` 子集；不是热更新插件市场 |
+
+| 项     | 约定                                                                                    |
+| ----- | ------------------------------------------------------------------------------------- |
+| 形态    | 仓库内 `skills/<name>/SKILL.md`：能力边界 + 允许的**已有**工具名 + 可选附加系统提示                           |
+| 运行时   | 选包 → 约束 `run_tool` 子集；不是热更新插件市场                                                       |
 | 第一期示例 | `course-qa`（检索相关）；`advanced-resources`（现有六工具）；`general-assist-search`（仅 `web_search`） |
-| 禁止 | 公司注册中心、任意 Shell、未登记出网、客户端改空间 |
+| 禁止    | 公司注册中心、任意 Shell、未登记出网、客户端改空间                                                          |
+
 
 **状态：已落地。** 见 **[12-本仓Skill.md](./12-本仓Skill.md)**；运行时入口 `backend/domain/skills.py`，进阶资料 `list_tool_specs` / `run_tool` 按包收紧。
-
-
-
-
 
 ### 3.3 跨会话 Memory
 
@@ -155,8 +152,7 @@ POST /ask
 | SSE  | 只推事件，不作为唯一真相源                                                                 |
 | 预算   | 沿用 `max_steps`；超时/超步 = 工具失败语义；不建单、不伪装未命中                                      |
 
-
----
+**状态：已落地。** 见 **[13-长任务状态.md](./13-长任务状态.md)**；运行时 `agent_task_service` + `run_plan_from_checkpoint`。
 
 
 
@@ -199,10 +195,10 @@ POST /ask
 
 ## 6. 建议实现顺序（以后做，本阶段不执行）
 
-1. ~~上下文压缩（会话加载 + `generate` 消息组装）~~ **已落地**
+1. ~~上下文压缩（会话加载 +~~ `generate` ~~消息组装）~~ **已落地**
 2. ~~本仓 Skill 包清单（包装现有工具，无新出网）~~ **已落地**（见 [12-本仓Skill.md](./12-本仓Skill.md)）
 3. Memory 表 + 注入预算
-4. `agent_tasks` 持久化进阶资料 plan
+4. ~~`agent_tasks` 持久化进阶资料 plan~~ **已落地**（见 [13-长任务状态.md](./13-长任务状态.md)）
 5. MCP Client 适配器 + **一个**只读外部工具登记演示
 
 每步单独可测；不得削弱空间隔离与拒答语义。新依赖须有该步直接用途，并先改 [04-技术选型.md](./04-技术选型.md)。
@@ -214,13 +210,13 @@ POST /ask
 ## 7. 和别的文档
 
 
-| 文档                                   | 关系                          |
-| ------------------------------------ | --------------------------- |
-| [01-课程覆盖.md](./01-课程覆盖.md) | 上课权威；本文为设计补充                |
-| [06-进阶资料推荐.md](./06-进阶资料推荐.md)         | 已落地 Agent；长任务 / Skill 的挂接母体 |
-| [03-系统架构.md](./03-系统架构.md)             | 架构权威；实现前扩展点仍服从本文约束          |
-| [04-技术选型.md](./04-技术选型.md)                 | 自研与禁止项                      |
-| [09-上线差距.md](./09-上线差距.md)       | 生产差距；非课表                    |
+| 文档                             | 关系                          |
+| ------------------------------ | --------------------------- |
+| [01-课程覆盖.md](./01-课程覆盖.md)     | 上课权威；本文为设计补充                |
+| [06-进阶资料推荐.md](./06-进阶资料推荐.md) | 已落地 Agent；长任务 / Skill 的挂接母体 |
+| [03-系统架构.md](./03-系统架构.md)     | 架构权威；实现前扩展点仍服从本文约束          |
+| [04-技术选型.md](./04-技术选型.md)     | 自研与禁止项                      |
+| [09-上线差距.md](./09-上线差距.md)     | 生产差距；非课表                    |
 
 
 ---
@@ -229,4 +225,4 @@ POST /ask
 
 ## 8. 一句话
 
-**CE / MCP：上下文压缩与本仓 Skill 已落地；Memory / 长任务 / MCP Client 仍以本文设计对照，勿讲成已全部实现，也勿为此引入 LangChain。**
+**CE / MCP：上下文压缩、本仓 Skill、长任务已落地；Memory / MCP Client 仍以本文设计对照，勿讲成已全部实现，也勿为此引入 LangChain。**
