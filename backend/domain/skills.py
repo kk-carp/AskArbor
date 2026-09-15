@@ -8,7 +8,8 @@ from pathlib import Path
 
 from backend.config import settings
 
-# 与 advanced_resources TOOL_SPECS + generate.web_search 对齐；Skill 只能缩小此集合
+# 与 advanced_resources TOOL_SPECS + generate.web_search 对齐；Skill 只能缩小此集合。
+# 工具执行可经 MCP Client（local adapter / 远程），但工具名与白名单仍以本集合为准。
 ADVANCED_RESOURCE_TOOLS = frozenset(
     {
         "summarize_weak_points",

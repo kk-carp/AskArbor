@@ -96,12 +96,28 @@ class Settings(BaseSettings):
     memory_value_max_chars: int = 500
     memory_inject_max_chars: int = 1500
 
+    # MCP Client（CE §4）：统一工具调用灰度；prod 建议 off
+    mcp_enabled: bool = False
+    mcp_mode: str = "off"  # off | shadow | merge
+    mcp_timeout_seconds: float = 15.0
+    mcp_allow_servers: str = "local"
+    # 按工具覆盖模式，如 "search_external=merge,web_search=shadow"
+    mcp_per_tool_override: str = ""
+
     @field_validator("app_env")
     @classmethod
     def _normalize_app_env(cls, value: str) -> str:
         normalized = (value or "").strip().lower()
         if normalized not in {"local", "prod"}:
             raise ValueError("APP_ENV 只能是 local 或 prod")
+        return normalized
+
+    @field_validator("mcp_mode")
+    @classmethod
+    def _normalize_mcp_mode(cls, value: str) -> str:
+        normalized = (value or "off").strip().lower()
+        if normalized not in {"off", "shadow", "merge"}:
+            raise ValueError("MCP_MODE 只能是 off、shadow 或 merge")
         return normalized
 
 

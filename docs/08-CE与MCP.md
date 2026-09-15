@@ -1,16 +1,15 @@
 # Context Engineering 与 MCP Client 设计
 
-> **补充参考**：文档索引见 [README.md](./README.md)。  
-> 状态：**上下文压缩（§3.1）、本仓 Skill（§3.2）、跨会话 Memory（§3.3）、长任务（§3.4）已落地**；MCP Client **仍为设计中、代码未落地**。  
-> 已落地可对着讲的相关能力：会话滚动摘要、`skills/*/SKILL.md`、`user_memories` 显式记忆注入、进阶资料白名单 Agent + `agent_tasks`、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[13-长任务状态.md](./13-长任务状态.md)、[14-跨会话Memory.md](./14-跨会话Memory.md)。  
+> 状态：**上下文压缩（§3.1）、本仓 Skill（§3.2）、跨会话 Memory（§3.3）、长任务（§3.4）、MCP Client 统一工具调用（§4）已落地**。  
+> 已落地可对着讲：会话滚动摘要、Skill 包、`user_memories`、`agent_tasks`、MCP `off/shadow/merge` 调用层。见 [12](./12-本仓Skill.md)、[13](./13-长任务状态.md)、[14](./14-跨会话Memory.md)、[15-MCP-Client.md](./15-MCP-Client.md)。  
 > 课程对照权威入口仍是 [01-课程覆盖.md](./01-课程覆盖.md)。
 
 
 | 项      | 内容                                                                                           |
 | ------ | -------------------------------------------------------------------------------------------- |
 | 目标     | 说明如何把 Context Engineering（压缩、本仓 Skill、跨会话 Memory、长任务状态）与 **MCP Client** 挂在现有 `/ask` 与进阶资料链路上 |
-| 本阶段    | 压缩、本仓 Skill、跨会话 Memory、长任务已落地；MCP Client 仍为设计 |
-| MCP 角色 | **Client**：只调用预先登记的外部 MCP 工具；**不做** MCP Server；**不做** 公司 SkillHub                            |
+| 本阶段    | 压缩、Skill、Memory、长任务、MCP Client 统一调用已落地 |
+| MCP 角色 | **Client**：只调用预先登记的工具（local adapter 过渡）；**不做** MCP Server；**不做** 公司 SkillHub                            |
 | 编排     | **自研**；**不引入** LangChain / LangGraph / LlamaIndex                                            |
 
 
@@ -64,12 +63,13 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 ## 2. 现状映射（对着现码讲）
 
 
-| CE 概念       | 现仓已有                                                                                        | 缺口（本文设计）                |
+| CE 概念       | 现仓已有                                                                                        | 缺口 / 边界                |
 | ----------- | ------------------------------------------------------------------------------------------- | ----------------------- |
-| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | MCP 等其余 CE 项未做 |
-| Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub        |
+| 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩                              | — |
+| Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | ≠ SkillHub；执行可经 MCP Client |
 | Memory      | `user_memories` 显式 CRUD（API + 问答页入口）；`/ask` 生成前按预算注入 | 无静默自动抽取；不进向量库 |
-| 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | MCP 未做 |
+| 长任务状态       | `agent_tasks` 持久化进阶资料 plan；检查点续跑；SSE 只推事件 | ≠ Redis/Celery/LangGraph |
+| MCP Client  | `backend/infra/mcp`：registry / client / adapter；`off/shadow/merge` | 默认 off；不做 Server 产品化 |
 
 
 **硬约束（实现时不得打破）**
@@ -90,7 +90,7 @@ POST /ask
 
 /advanced-resources/plan
   → whitelist tools（Skill 约束子集）
-  → 未来：MCP Client → 仅登记过的外部 MCP
+  → MCP Client（off/shadow/merge；默认 off）→ 仅登记工具
   → agent_tasks 持久化；SSE 只推事件
 ```
 
@@ -100,7 +100,7 @@ POST /ask
 
 ## 3. 四个能力的最小落地契约
 
-§3.1–§3.4 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)、[14-跨会话Memory.md](./14-跨会话Memory.md)、[13-长任务状态.md](./13-长任务状态.md)）；MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
+§3.1–§3.4 与 §4 MCP Client 均已落地（详见 [07](./07-上下文压缩.md)、[12](./12-本仓Skill.md)、[14](./14-跨会话Memory.md)、[13](./13-长任务状态.md)、[15](./15-MCP-Client.md)）。扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*` / `infra/mcp`，不新建空 `agents/` 包或第二套内核。
 
 ### 3.1 上下文压缩（已落地）
 
@@ -157,23 +157,25 @@ POST /ask
 
 ## 4. MCP Client（本仓角色）
 
-**定位：** 协议适配层，把「已登记 MCP 工具」映射进现有 `run_tool` 风格调度。**禁止**模型任意发现未登记 server。
+**定位：** 统一工具调用层：已登记工具经 `mcp_client.invoke_with_mode` 执行；工具名与 Skill 白名单不变。**禁止**模型任意发现未登记 server。
 
 
 | 项   | 约定                                                              |
 | --- | --------------------------------------------------------------- |
-| 登记  | 配置或表：`name, transport, endpoint, allowed_tool_names[], timeout` |
-| 环境  | 建议仅 `APP_ENV=local` 默认可开演示；prod 默认关                             |
-| 调用链 | Skill/Agent 选中工具名 → Client 调外部 MCP → 结果经白名单/字段清洗 → 回填；失败 = 工具失败 |
-| 安全  | 与 `search_open_resources` 同级；不得传 `space_ids`；结果不得当 KB `sources` |
-| 非目标 | MCP Server、SkillHub、把 MCP 当第二检索内核                               |
+| 登记  | 应用层组合根 `backend/services/mcp_tooling.py` 注入 handler；`infra/mcp/{registry,mapping}` 仅声明与注册协议 |
+| 模式  | `off` / `shadow` / `merge`；默认 off；可用 `mcp_per_tool_override` |
+| 覆盖  | 进阶资料六工具、`web_search`、arxiv/tavily 搜索源 |
+| 调用链 | Skill/Agent 选中工具名 → Client → adapter/server → 清洗回填；失败 = 工具失败 |
+| 安全  | 剥 `space_ids`；结果不得当 KB `sources`；不过度改 `/ask` 命中主链 |
+| 非目标 | MCP Server 产品化、SkillHub、把 MCP 当第二检索内核、LangChain |
 
 
-**课上讲法（代码未落地时）**
+**状态：已落地。** 见 **[15-MCP-Client.md](./15-MCP-Client.md)**。
 
-- 第 30 课 Agent：**对着进阶资料代码讲**（工具表、步进、白名单）。
-- MCP：口头 + 本文设计图——「同一工具调度，多一种运输协议」；**不要讲成已经接好了外部 MCP**。
-- 第 40 课 LangChain：仍跳过；可一句对照「自研循环够用，见本文 §1」。
+**课上讲法**
+
+- 第 30 课 Agent：对着进阶资料讲工具表；再打开 MCP Client——「同一调度，换运输」。
+- 第 40 课 LangChain：仍跳过；对照「自研循环 + MCP Client 够用」。
 
 ---
 
@@ -198,7 +200,7 @@ POST /ask
 2. ~~本仓 Skill 包清单（包装现有工具，无新出网）~~ **已落地**（见 [12-本仓Skill.md](./12-本仓Skill.md)）
 3. ~~Memory 表 + 注入预算~~ **已落地**（见 [14-跨会话Memory.md](./14-跨会话Memory.md)）
 4. ~~`agent_tasks` 持久化进阶资料 plan~~ **已落地**（见 [13-长任务状态.md](./13-长任务状态.md)）
-5. MCP Client 适配器 + **一个**只读外部工具登记演示（**未做**）
+5. ~~MCP Client 统一工具调用（off/shadow/merge）~~ **已落地**（见 [15-MCP-Client.md](./15-MCP-Client.md)）
 
 每步单独可测；不得削弱空间隔离与拒答语义。新依赖须有该步直接用途，并先改 [04-技术选型.md](./04-技术选型.md)。
 
@@ -228,4 +230,4 @@ POST /ask
 
 ## 8. 一句话
 
-**CE / MCP：上下文压缩、本仓 Skill、跨会话 Memory、长任务已落地；MCP Client 仍以本文设计对照，勿讲成已实现，也勿为此引入 LangChain。**
+**CE / MCP：上下文压缩、本仓 Skill、跨会话 Memory、长任务与 MCP Client 统一工具调用均已落地；勿为此引入 LangChain。**

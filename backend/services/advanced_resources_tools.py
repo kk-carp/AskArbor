@@ -676,6 +676,11 @@ def tool_compose_report(
 def run_tool(name: str, args: dict[str, Any] | None, *, user_id: str) -> ToolResult:
     """执行白名单工具；须同时落在代码 WHITELIST 与当前 Skill 子集内。"""
     from backend.domain.skills import SkillLoadError, load_skill
+    from backend.infra.mcp import (
+        ensure_mapping_bootstrapped,
+        fingerprint_tool_result,
+        invoke_with_mode,
+    )
 
     try:
         skill = load_skill(settings.advanced_resources_skill)
@@ -700,6 +705,28 @@ def run_tool(name: str, args: dict[str, Any] | None, *, user_id: str) -> ToolRes
     # 忽略客户端试图传入的空间参数
     payload = {k: v for k, v in payload.items() if k not in {"space_ids", "allowed_spaces", "space_id"}}
 
+    def _legacy() -> ToolResult:
+        return _dispatch_legacy_tool(name, payload, user_id=user_id)
+
+    if settings.mcp_enabled:
+        ensure_mapping_bootstrapped()
+    mcp_args = dict(payload)
+    if name in {"summarize_weak_points", "analyze_capability"}:
+        mcp_args.setdefault("user_id", user_id)
+    if name == "analyze_capability" and not isinstance(mcp_args.get("questions"), list):
+        mcp_args["questions"] = list_recent_user_questions(
+            user_id=user_id,
+            limit=settings.learning_path_recent_questions,
+        )
+    return invoke_with_mode(
+        name,
+        mcp_args,
+        legacy=_legacy,
+        result_fingerprint=fingerprint_tool_result,
+    )
+
+
+def _dispatch_legacy_tool(name: str, payload: dict[str, Any], *, user_id: str) -> ToolResult:
     if name == "summarize_weak_points":
         return tool_summarize_weak_points(user_id=user_id, limit=payload.get("limit"))
     if name == "search_course":

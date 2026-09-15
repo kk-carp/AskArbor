@@ -409,6 +409,24 @@ def _format_web_search_hits(hits: list[object]) -> str:
 
 def run_general_assist_web_search(query: str) -> str:
     """学员兜底用的公开网页检索；失败返回说明，不抛成知识库未命中。"""
+    from backend.infra.mcp import ensure_mapping_bootstrapped, invoke_with_mode
+
+    text = (query or "").strip()
+
+    def _legacy() -> str:
+        return _run_general_assist_web_search_impl(text)
+
+    if settings.mcp_enabled:
+        ensure_mapping_bootstrapped()
+    return invoke_with_mode(
+        "web_search",
+        {"query": text},
+        legacy=_legacy,
+        result_fingerprint=lambda body: f"str:{len(body or '')}",
+    )
+
+
+def _run_general_assist_web_search_impl(query: str) -> str:
     text = (query or "").strip()
     if not text:
         return "搜索词为空，没有可用的公开网页结果。"

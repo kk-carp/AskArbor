@@ -16,6 +16,7 @@ from backend.infra.open_resource import init_open_resource_search_tools
 from backend.infra.origin_guard import OriginGuardMiddleware
 from backend.infra.rerank import load_reranker
 from backend.infra.request_context import RequestIdMiddleware
+from backend.infra.mcp import set_mapping_initializer
 from backend.routes import (
     advanced_resources,
     ask,
@@ -31,6 +32,7 @@ from backend.routes import (
     topic_owners,
 )
 from backend.spa import register_frontend
+from backend.services.mcp_tooling import bootstrap_mcp_tools
 
 _log = logging.getLogger("uvicorn.error")
 
@@ -67,14 +69,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _done("3/5 load reranker", t0)
 
     t0 = time.perf_counter()
-    _step("4/5 open-resource tools")
-    init_open_resource_search_tools()
-    _done("4/5 open-resource tools", t0)
+    _step("4/6 mcp initializer")
+    set_mapping_initializer(bootstrap_mcp_tools)
+    if settings.mcp_enabled:
+        bootstrap_mcp_tools()
+        _log.info("mcp tool mapping ready (mode=%s)", settings.mcp_mode)
+    _done("4/6 mcp initializer", t0)
 
     t0 = time.perf_counter()
-    _step("5/5 assert builtin skills")
+    _step("5/6 open-resource tools")
+    init_open_resource_search_tools()
+    _done("5/6 open-resource tools", t0)
+
+    t0 = time.perf_counter()
+    _step("6/6 assert builtin skills")
     assert_builtin_skills()
-    _done("5/5 assert builtin skills", t0)
+    _done("6/6 assert builtin skills", t0)
 
     _log.info("startup complete (%.1fs total)", time.perf_counter() - started)
     yield
