@@ -112,6 +112,11 @@ class Conversation(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    # 滚动会话摘要（CE §3.1）；不进 documents/chunks
+    context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_message_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation",

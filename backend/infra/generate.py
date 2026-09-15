@@ -177,12 +177,40 @@ def complete_chat(
     return ChatResult(text=answer, usage=_usage_from_response(response))
 
 
+def _append_history(
+    messages: ChatMessages,
+    history: list[tuple[str, str]] | None,
+    *,
+    conversation_summary: str | None = None,
+) -> None:
+    summary = (conversation_summary or "").strip()
+    if summary:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "以下是更早对话的摘要，仅供理解追问；不得覆盖本轮知识库依据，"
+                    "也不得当作来源或编造课程/制度条文。\n\n"
+                    f"{summary}"
+                ),
+            }
+        )
+    for role, content in history or []:
+        if role not in ("user", "assistant"):
+            continue
+        text = (content or "").strip()
+        if not text:
+            continue
+        messages.append({"role": role, "content": text})
+
+
 def _build_messages(
     question: str,
     chunks: list[RetrievedChunk],
     history: list[tuple[str, str]] | None = None,
     *,
     screenshot_text: str | None = None,
+    conversation_summary: str | None = None,
 ) -> ChatMessages:
     shot = (screenshot_text or "").strip() or None
     if not chunks and not shot:
@@ -194,13 +222,7 @@ def _build_messages(
             "content": _SYSTEM_WITH_SCREENSHOT if shot else _SYSTEM_KB_ONLY,
         },
     ]
-    for role, content in history or []:
-        if role not in ("user", "assistant"):
-            continue
-        text = (content or "").strip()
-        if not text:
-            continue
-        messages.append({"role": role, "content": text})
+    _append_history(messages, history, conversation_summary=conversation_summary)
 
     messages.append(
         {
@@ -218,17 +240,13 @@ def _build_messages(
 def _build_general_assist_messages(
     question: str,
     history: list[tuple[str, str]] | None = None,
+    *,
+    conversation_summary: str | None = None,
 ) -> ChatMessages:
     messages: ChatMessages = [
         {"role": "system", "content": _SYSTEM_GENERAL_ASSIST},
     ]
-    for role, content in history or []:
-        if role not in ("user", "assistant"):
-            continue
-        text = (content or "").strip()
-        if not text:
-            continue
-        messages.append({"role": role, "content": text})
+    _append_history(messages, history, conversation_summary=conversation_summary)
     messages.append(
         {
             "role": "user",
@@ -283,9 +301,18 @@ def generate_answer(
     history: list[tuple[str, str]] | None = None,
     *,
     screenshot_text: str | None = None,
+    conversation_summary: str | None = None,
 ) -> ChatResult:
     """调用 DeepSeek 生成答案；history 为 (role, content) 多轮，本轮依据在最后一条。"""
-    return complete_chat(_build_messages(question, chunks, history, screenshot_text=screenshot_text))
+    return complete_chat(
+        _build_messages(
+            question,
+            chunks,
+            history,
+            screenshot_text=screenshot_text,
+            conversation_summary=conversation_summary,
+        )
+    )
 
 
 def generate_answer_stream(
@@ -294,10 +321,17 @@ def generate_answer_stream(
     history: list[tuple[str, str]] | None = None,
     *,
     screenshot_text: str | None = None,
+    conversation_summary: str | None = None,
 ) -> Iterator[str | ChatResult]:
     """流式生成答案：yield 文本增量，最后 yield ChatResult。"""
     yield from stream_chat(
-        _build_messages(question, chunks, history, screenshot_text=screenshot_text)
+        _build_messages(
+            question,
+            chunks,
+            history,
+            screenshot_text=screenshot_text,
+            conversation_summary=conversation_summary,
+        )
     )
 
 
@@ -358,9 +392,16 @@ def _prepare_general_assist(
     history: list[tuple[str, str]] | None = None,
     *,
     web_search: WebSearchFn | None = None,
+    conversation_summary: str | None = None,
 ) -> tuple[ChatMessages, ChatUsage, str | None]:
     """先让模型决定是否搜索；最多一轮 web_search，不是多步 Agent。"""
-    messages: ChatMessages = list(_build_general_assist_messages(question, history))
+    messages: ChatMessages = list(
+        _build_general_assist_messages(
+            question,
+            history,
+            conversation_summary=conversation_summary,
+        )
+    )
     response = _create_chat_completion(
         messages,
         tools=[_WEB_SEARCH_TOOL],
@@ -415,10 +456,14 @@ def generate_general_assist(
     history: list[tuple[str, str]] | None = None,
     *,
     web_search: WebSearchFn | None = None,
+    conversation_summary: str | None = None,
 ) -> ChatResult:
     """知识库未命中时的学员实践/概念兜底；可选用公开网页搜索，不使用召回片段。"""
     messages, usage, text = _prepare_general_assist(
-        question, history, web_search=web_search
+        question,
+        history,
+        web_search=web_search,
+        conversation_summary=conversation_summary,
     )
     if text is not None:
         return ChatResult(text=text, usage=usage)
@@ -431,9 +476,13 @@ def generate_general_assist_stream(
     history: list[tuple[str, str]] | None = None,
     *,
     web_search: WebSearchFn | None = None,
+    conversation_summary: str | None = None,
 ) -> Iterator[str | ChatResult]:
     messages, usage, text = _prepare_general_assist(
-        question, history, web_search=web_search
+        question,
+        history,
+        web_search=web_search,
+        conversation_summary=conversation_summary,
     )
     if text is not None:
         yield text

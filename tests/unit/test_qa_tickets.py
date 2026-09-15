@@ -5,6 +5,7 @@ import pytest
 from backend.errors import UpstreamServiceError
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
+from backend.services.conversation_service import ContextForGenerate
 from backend.services.qa_service import MISS_ANSWER
 from backend.services.ticket_service import TicketError
 
@@ -41,7 +42,11 @@ def test_student_miss_creates_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
         "get_or_create_conversation",
         lambda *_a, **_k: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
@@ -95,7 +100,11 @@ def test_employee_miss_does_not_create_ticket(monkeypatch: pytest.MonkeyPatch) -
         "get_or_create_conversation",
         lambda *_a, **_k: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)
@@ -149,7 +158,11 @@ def test_upstream_failure_does_not_create_ticket(monkeypatch: pytest.MonkeyPatch
         "get_or_create_conversation",
         lambda *_a, **_k: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
     monkeypatch.setattr(
@@ -214,7 +227,11 @@ def test_student_miss_without_advisor_raises(monkeypatch: pytest.MonkeyPatch) ->
         "get_or_create_conversation",
         lambda *_a, **_k: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_k: [])
     monkeypatch.setattr(qa_service, "append_turn", lambda *_a, **_k: None)

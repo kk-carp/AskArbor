@@ -30,7 +30,7 @@ from backend.services.conversation_service import (
     ConversationNotFoundError,
     append_turn,
     get_or_create_conversation,
-    load_recent_history,
+    load_context_for_generate,
 )
 from backend.services.ticket_service import create_ticket_for_student
 from backend.services.topic_owner_service import lookup_owner_for_employee
@@ -207,6 +207,8 @@ def _collect_stream(
     retrieved: list[RetrievedChunk],
     history: list[tuple[str, str]] | None,
     screenshot_text: str | None,
+    *,
+    conversation_summary: str | None = None,
 ) -> Iterator[tuple[str, dict] | ChatResult]:
     generated: ChatResult | None = None
     for item in generate_answer_stream(
@@ -214,6 +216,7 @@ def _collect_stream(
         retrieved,
         history=history,
         screenshot_text=screenshot_text,
+        conversation_summary=conversation_summary,
     ):
         if isinstance(item, str):
             yield ("delta", {"text": item})
@@ -320,8 +323,9 @@ def iter_answer_events(
         except ConversationNotFoundError:
             raise
 
-        history = load_recent_history(session, conversation_id=conversation.id)
-        history_tuples = [(item.role, item.content) for item in history]
+        ctx = load_context_for_generate(session, conversation_id=conversation.id)
+        history_tuples = [(item.role, item.content) for item in ctx.history]
+        conversation_summary = ctx.summary
 
         def _miss_result() -> AskResult:
             append_turn(
@@ -386,6 +390,7 @@ def iter_answer_events(
                     for item in generate_general_assist_stream(
                         normalized_question,
                         history=history_tuples,
+                        conversation_summary=conversation_summary,
                     ):
                         if isinstance(item, str):
                             yield ("delta", {"text": item})
@@ -469,6 +474,7 @@ def iter_answer_events(
                 retrieved,
                 history_tuples,
                 shot,
+                conversation_summary=conversation_summary,
             ):
                 if isinstance(item, ChatResult):
                     generated = item
@@ -610,8 +616,9 @@ def answer_question(
         except ConversationNotFoundError:
             raise
 
-        history = load_recent_history(session, conversation_id=conversation.id)
-        history_tuples = [(item.role, item.content) for item in history]
+        ctx = load_context_for_generate(session, conversation_id=conversation.id)
+        history_tuples = [(item.role, item.content) for item in ctx.history]
+        conversation_summary = ctx.summary
 
         def _miss_result() -> AskResult:
             append_turn(
@@ -665,6 +672,7 @@ def answer_question(
                     generated = generate_general_assist(
                         normalized_question,
                         history=history_tuples,
+                        conversation_summary=conversation_summary,
                     )
                 except UpstreamServiceError:
                     session.rollback()
@@ -727,6 +735,7 @@ def answer_question(
                 retrieved,
                 history=history_tuples,
                 screenshot_text=shot,
+                conversation_summary=conversation_summary,
             )
         except UpstreamServiceError:
             session.rollback()

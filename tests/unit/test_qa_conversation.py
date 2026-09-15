@@ -6,7 +6,7 @@ from backend.errors import UpstreamServiceError
 from backend.infra.generate import ChatResult, ChatUsage
 from backend.infra.retrieve import RetrievedChunk
 from backend.services import qa_service
-from backend.services.conversation_service import HistoryMessage
+from backend.services.conversation_service import ContextForGenerate, HistoryMessage
 from backend.services.qa_service import MISS_ANSWER
 
 
@@ -41,7 +41,11 @@ def test_answer_question_with_conversation_persists_miss(
         "get_or_create_conversation",
         lambda _session, **_kwargs: _Conversation(),
     )
-    monkeypatch.setattr(qa_service, "load_recent_history", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        qa_service,
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(history=[], summary=None),
+    )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service, "run_retrieval", lambda **_kwargs: [])
 
@@ -97,8 +101,11 @@ def test_answer_question_rolls_back_on_upstream_failure(
     )
     monkeypatch.setattr(
         qa_service,
-        "load_recent_history",
-        lambda *_a, **_k: [HistoryMessage(role="user", content="之前")],
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(
+            history=[HistoryMessage(role="user", content="之前")],
+            summary=None,
+        ),
     )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
@@ -170,11 +177,14 @@ def test_answer_question_passes_history_to_generate(
     )
     monkeypatch.setattr(
         qa_service,
-        "load_recent_history",
-        lambda *_a, **_k: [
-            HistoryMessage(role="user", content="上次问题"),
-            HistoryMessage(role="assistant", content="上次答案"),
-        ],
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(
+            history=[
+                HistoryMessage(role="user", content="上次问题"),
+                HistoryMessage(role="assistant", content="上次答案"),
+            ],
+            summary=None,
+        ),
     )
     monkeypatch.setattr(qa_service, "encode_query", lambda _q: [0.1])
     monkeypatch.setattr(qa_service.settings, "retrieve_min_score", 0.3)
@@ -193,7 +203,7 @@ def test_answer_question_passes_history_to_generate(
         ],
     )
 
-    def _fake_generate(question, chunks, history=None, *, screenshot_text=None):
+    def _fake_generate(question, chunks, history=None, *, screenshot_text=None, conversation_summary=None):
         captured["question"] = question
         captured["history"] = history
         return ChatResult(text="本轮答案", usage=ChatUsage(prompt_tokens=20, completion_tokens=6))
@@ -247,11 +257,14 @@ def test_answer_question_followup_expands_retrieval_query(
     )
     monkeypatch.setattr(
         qa_service,
-        "load_recent_history",
-        lambda *_a, **_k: [
-            HistoryMessage(role="user", content="课程作业怎么交"),
-            HistoryMessage(role="assistant", content="在平台提交。"),
-        ],
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(
+            history=[
+                HistoryMessage(role="user", content="课程作业怎么交"),
+                HistoryMessage(role="assistant", content="在平台提交。"),
+            ],
+            summary=None,
+        ),
     )
     monkeypatch.setattr(
         qa_service,
@@ -304,11 +317,14 @@ def test_answer_question_complete_follow_topic_does_not_expand_query(
     )
     monkeypatch.setattr(
         qa_service,
-        "load_recent_history",
-        lambda *_a, **_k: [
-            HistoryMessage(role="user", content="入职要看哪些资料"),
-            HistoryMessage(role="assistant", content="先看指南。"),
-        ],
+        "load_context_for_generate",
+        lambda *_a, **_k: ContextForGenerate(
+            history=[
+                HistoryMessage(role="user", content="入职要看哪些资料"),
+                HistoryMessage(role="assistant", content="先看指南。"),
+            ],
+            summary=None,
+        ),
     )
     monkeypatch.setattr(
         qa_service,
