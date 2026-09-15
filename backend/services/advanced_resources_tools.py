@@ -72,7 +72,10 @@ WHITELIST = frozenset(item["name"] for item in TOOL_SPECS)
 
 
 def list_tool_specs() -> list[dict[str, Any]]:
-    return list(TOOL_SPECS)
+    from backend.domain.skills import load_skill
+
+    skill = load_skill(settings.advanced_resources_skill)
+    return [item for item in TOOL_SPECS if item["name"] in skill.tools]
 
 
 def tool_summarize_weak_points(*, user_id: str, limit: int | None = None) -> ToolResult:
@@ -671,7 +674,28 @@ def tool_compose_report(
 
 
 def run_tool(name: str, args: dict[str, Any] | None, *, user_id: str) -> ToolResult:
-    """执行白名单工具；未知名称由调用方先校验。"""
+    """执行白名单工具；须同时落在代码 WHITELIST 与当前 Skill 子集内。"""
+    from backend.domain.skills import SkillLoadError, load_skill
+
+    try:
+        skill = load_skill(settings.advanced_resources_skill)
+    except SkillLoadError as exc:
+        return ToolResult(
+            tool=name,
+            ok=False,
+            data={},
+            error_type="skill_load_failed",
+            message=str(exc),
+        )
+    if name not in skill.tools:
+        return ToolResult(
+            tool=name,
+            ok=False,
+            data={},
+            error_type="tool_not_in_skill",
+            message=f"工具不在 Skill {skill.name} 允许列表中: {name}",
+        )
+
     payload = args or {}
     # 忽略客户端试图传入的空间参数
     payload = {k: v for k, v in payload.items() if k not in {"space_ids", "allowed_spaces", "space_id"}}

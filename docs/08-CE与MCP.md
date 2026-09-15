@@ -1,15 +1,15 @@
 # Context Engineering 与 MCP Client 设计
 
 > **补充参考**：文档索引见 [README.md](./README.md)。  
-> 状态：**上下文压缩（§3.1）已落地**；本仓 Skill / 跨会话 Memory / 长任务持久化 / MCP Client **仍为设计中、代码未落地**。  
-> 已落地可对着讲的相关能力：会话最近 N 轮 + 滚动摘要、进阶资料白名单 Agent、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)。  
+> 状态：**上下文压缩（§3.1）与本仓 Skill（§3.2）已落地**；跨会话 Memory / 长任务持久化 / MCP Client **仍为设计中、代码未落地**。  
+> 已落地可对着讲的相关能力：会话最近 N 轮 + 滚动摘要、`skills/*/SKILL.md` 工具白名单、进阶资料白名单 Agent、单轮 `web_search`。见 [06-进阶资料推荐.md](./06-进阶资料推荐.md)、[12-本仓Skill.md](./12-本仓Skill.md)。  
 > 课程对照权威入口仍是 [01-课程覆盖.md](./01-课程覆盖.md)。
 
 
 | 项      | 内容                                                                                           |
 | ------ | -------------------------------------------------------------------------------------------- |
 | 目标     | 说明如何把 Context Engineering（压缩、本仓 Skill、跨会话 Memory、长任务状态）与 **MCP Client** 挂在现有 `/ask` 与进阶资料链路上 |
-| 本阶段    | 上下文压缩已落地；Skill / Memory / 长任务 / MCP Client 仍为设计 |
+| 本阶段    | 上下文压缩与本仓 Skill 已落地；Memory / 长任务 / MCP Client 仍为设计 |
 | MCP 角色 | **Client**：只调用预先登记的外部 MCP 工具；**不做** MCP Server；**不做** 公司 SkillHub                            |
 | 编排     | **自研**；**不引入** LangChain / LangGraph / LlamaIndex                                            |
 
@@ -67,7 +67,7 @@ MCP 是 **工具运输协议**，不是 LangChain 的替代品，也不是第二
 | CE 概念       | 现仓已有                                                                                     | 缺口（本文设计）           |
 | ----------- | ---------------------------------------------------------------------------------------- | ------------------ |
 | 上下文窗口       | `load_context_for_generate`：最近 N 轮 + 可选 `context_summary` 滚动压缩 | Memory / MCP 等其余 CE 项未做 |
-| Skill / 工具包 | `advanced_resources_tools` 白名单；`generate` 中 general_assist 单轮 `web_search`               | 无「Skill 包」形态；无 MCP |
+| Skill / 工具包 | `skills/*/SKILL.md` + `domain/skills.py`；进阶资料按包收紧 `run_tool`；general_assist 单轮 `web_search` | 无 MCP；≠ SkillHub |
 | Memory      | 会话 `messages`；进阶资料用 `list_recent_user_questions` 跨会话近期提问                                 | 无跨会话长期事实记忆表        |
 | 长任务状态       | 进阶资料单次 `plan` + 进程内 `_plan_cache` + SSE                                                  | 无持久化 task / 断点续跑   |
 
@@ -89,7 +89,7 @@ POST /ask
   → retrieve(SQL space filter) → hit? DeepSeek_KB : refuse / general_assist
 
 /advanced-resources/plan
-  → whitelist tools（未来：Skill 约束子集）
+  → whitelist tools（Skill 约束子集）
   → 未来：MCP Client → 仅登记过的外部 MCP
   → 未来：agent_tasks 持久化；SSE 只推事件
 ```
@@ -100,7 +100,7 @@ POST /ask
 
 ## 3. 四个能力的最小落地契约
 
-§3.1 已落地；§3.2–§3.4 与 MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
+§3.1、§3.2 已落地（详见 [07-上下文压缩.md](./07-上下文压缩.md)、[12-本仓Skill.md](./12-本仓Skill.md)）；§3.3–§3.4 与 MCP 仍为设计。实现时应扩展现有 `conversation_service` / `generate.py` / `advanced_resources_*`，不新建空 `agents/` 包或第二套内核。
 
 ### 3.1 上下文压缩（已落地）
 
@@ -119,13 +119,15 @@ POST /ask
 
 ### 3.2 Skill（本仓教学义，≠ SkillHub）
 
-
-| 项     | 约定                                                                                    |
-| ----- | ------------------------------------------------------------------------------------- |
-| 形态    | 仓库内 `skills/<name>/SKILL.md`（或等价清单）：能力边界 + 允许的**已有**工具名 + 可选附加系统提示                    |
-| 运行时   | 选包 → 约束 `run_tool` 子集；不是热更新插件市场                                                       |
+| 项 | 约定 |
+| --- | --- |
+| 形态 | 仓库内 `skills/<name>/SKILL.md`：能力边界 + 允许的**已有**工具名 + 可选附加系统提示 |
+| 运行时 | 选包 → 约束 `run_tool` 子集；不是热更新插件市场 |
 | 第一期示例 | `course-qa`（检索相关）；`advanced-resources`（现有六工具）；`general-assist-search`（仅 `web_search`） |
-| 禁止    | 公司注册中心、任意 Shell、未登记出网、客户端改空间                                                          |
+| 禁止 | 公司注册中心、任意 Shell、未登记出网、客户端改空间 |
+
+**状态：已落地。** 见 **[12-本仓Skill.md](./12-本仓Skill.md)**；运行时入口 `backend/domain/skills.py`，进阶资料 `list_tool_specs` / `run_tool` 按包收紧。
+
 
 
 
@@ -198,7 +200,7 @@ POST /ask
 ## 6. 建议实现顺序（以后做，本阶段不执行）
 
 1. ~~上下文压缩（会话加载 + `generate` 消息组装）~~ **已落地**
-2. 本仓 Skill 包清单（包装现有工具，无新出网）
+2. ~~本仓 Skill 包清单（包装现有工具，无新出网）~~ **已落地**（见 [12-本仓Skill.md](./12-本仓Skill.md)）
 3. Memory 表 + 注入预算
 4. `agent_tasks` 持久化进阶资料 plan
 5. MCP Client 适配器 + **一个**只读外部工具登记演示
@@ -227,4 +229,4 @@ POST /ask
 
 ## 8. 一句话
 
-**CE / MCP：上下文压缩已落地；Skill / Memory / 长任务 / MCP Client 仍以本文设计对照，勿讲成已全部实现，也勿为此引入 LangChain。**
+**CE / MCP：上下文压缩与本仓 Skill 已落地；Memory / 长任务 / MCP Client 仍以本文设计对照，勿讲成已全部实现，也勿为此引入 LangChain。**
