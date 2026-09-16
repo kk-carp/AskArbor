@@ -32,8 +32,11 @@
 | [13-长任务状态.md](./13-长任务状态.md) | 进阶资料 plan 的 `agent_tasks` 持久化与续跑（已落地；含课上讲解稿） |
 | [14-跨会话Memory.md](./14-跨会话Memory.md) | 显式 `user_memories` + `/ask` 注入 + 问答页入口（已落地） |
 | [15-MCP-Client.md](./15-MCP-Client.md) | MCP 统一工具调用：三模式、映射、演示（已落地） |
+| [16-评测闭环对比.md](./16-评测闭环对比.md) | 50+ 评测集的 Recall / 拒答 / 延迟 / 成本一页对比（脚本生成） |
+| [FDE岗位要求与项目功能对照.md](./FDE岗位要求与项目功能对照.md) | JD 硬门槛 ↔ 本仓功能；学员面试/学习速查 |
+| [AI应用开发与FDE学习路径与实践资料推荐.md](./AI应用开发与FDE学习路径与实践资料推荐.md) | 完整学习路径、资料与面试自检（对照表的来源） |
 
-**评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)
+**评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)、[phase1_eval_extended.md](./phase1_eval_extended.md)、[phase1_eval_extended.json](./phase1_eval_extended.json)
 
 **样例：** [samples/t13/](./samples/t13/)、[samples/eval/](./samples/eval/)、[samples/v2a/](./samples/v2a/)
 

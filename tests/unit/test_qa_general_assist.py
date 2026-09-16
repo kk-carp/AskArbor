@@ -138,6 +138,53 @@ def test_student_isolation_and_facility_miss_skip_general_assist(
     assert facility.ticket_id is not None
 
 
+def test_student_isolation_probe_drops_false_positive_student_hits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """越权问句即使误召回 student 片段，也必须固定拒答且不调模型。"""
+    from backend.infra.retrieve import RetrievedChunk
+
+    conversation_id = _patch_conversation(monkeypatch)
+    monkeypatch.setattr(
+        qa_service,
+        "run_retrieval",
+        lambda **_k: [
+            RetrievedChunk(
+                chunk_id="c1",
+                document_id="d1",
+                space_id="student",
+                title="student_course_sample",
+                path="student_course_sample.md",
+                content="Friday homework deadline",
+                score=0.9,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        qa_service,
+        "generate_answer",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("不应生成")),
+    )
+    monkeypatch.setattr(
+        qa_service,
+        "create_ticket_for_student",
+        lambda *_a, **_k: type("T", (), {"id": str(uuid4())})(),
+    )
+
+    result = qa_service.answer_question(
+        ["student"],
+        "远程访问内部系统前需要满足什么条件？",
+        user_id="stu-1",
+        user_role="student",
+        advisor_id="adv-1",
+        conversation_id=conversation_id,
+    )
+    assert result.hit is False
+    assert result.answer == MISS_ANSWER
+    assert result.llm_called is False
+    assert result.sources == []
+
+
 def test_employee_concept_miss_does_not_general_assist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

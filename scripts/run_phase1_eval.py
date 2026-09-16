@@ -25,6 +25,8 @@ TRANSIENT_HTTP_ERRORS = (
     httpx.RemoteProtocolError,
     httpx.WriteError,
     httpx.ConnectTimeout,
+    httpx.ReadTimeout,
+    httpx.PoolTimeout,
 )
 
 
@@ -63,12 +65,13 @@ class CaseResult:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run phase-1 minimal evaluation and export baseline metrics."
+        description="Run phase-1 evaluation and export baseline / closed-loop metrics."
     )
     parser.add_argument("--api-base", default="http://127.0.0.1:8000")
     parser.add_argument(
         "--case-file",
         default="docs/samples/eval/phase1_minimal_eval_set.jsonl",
+        help="课上默认 12 条；闭环请用 docs/samples/eval/phase1_extended_eval_set.jsonl",
     )
     parser.add_argument(
         "--student-doc",
@@ -89,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout-sec",
         type=float,
-        default=90.0,
+        default=180.0,
         help="Per-request timeout. /ask with rerank + DeepSeek can exceed 30s.",
     )
     parser.add_argument("--health-timeout-sec", type=int, default=120)
@@ -118,6 +121,28 @@ def parse_args() -> argparse.Namespace:
         "--gate-extra-file",
         default="docs/samples/eval/gate_extra_isolation.jsonl",
         help="仅 --gate 时追加的越权样本；不计入课上 12 条作业集。",
+    )
+    parser.add_argument(
+        "--prompt-price-per-1m",
+        type=float,
+        default=float(os.environ.get("EVAL_PROMPT_PRICE_PER_1M", "1.0")),
+        help="Prompt token 单价（元 / 百万 token），用于估算单次成本。",
+    )
+    parser.add_argument(
+        "--completion-price-per-1m",
+        type=float,
+        default=float(os.environ.get("EVAL_COMPLETION_PRICE_PER_1M", "2.0")),
+        help="Completion token 单价（元 / 百万 token），用于估算单次成本。",
+    )
+    parser.add_argument(
+        "--baseline-json",
+        default="",
+        help="可选：上一版评测 JSON，用于写入优化对比页。",
+    )
+    parser.add_argument(
+        "--write-comparison",
+        default="",
+        help="可选：输出一页优化对比 Markdown 路径。",
     )
     return parser.parse_args()
 
@@ -381,18 +406,25 @@ def run_case(
     case: EvalCase,
     demo_password: str,
     health_timeout_sec: int,
-) -> CaseResult:
+    *,
+    logged_in_role: str | None = None,
+) -> tuple[CaseResult, str]:
+    """返回 (结果, 当前已登录角色)。同角色复用 Cookie，避免评测触发登录限流。"""
     last_exc: BaseException | None = None
     response: httpx.Response | None = None
     latency_ms = 0.0
+    current_role = logged_in_role
     for attempt in range(4):
-        login_demo_user(client, api_base, case.role, demo_password, health_timeout_sec)
+        if current_role != case.role:
+            login_demo_user(client, api_base, case.role, demo_password, health_timeout_sec)
+            current_role = case.role
         payload = {"question": case.question}
         started = time.perf_counter()
         try:
             response = client.post(f"{api_base}/ask", json=payload)
         except TRANSIENT_HTTP_ERRORS as exc:
             last_exc = exc
+            current_role = None
             if attempt + 1 >= 4:
                 break
             print(
@@ -425,25 +457,29 @@ def run_case(
     prompt_tokens = int(body.get("prompt_tokens") or 0)
     completion_tokens = int(body.get("completion_tokens") or 0)
 
-    return CaseResult(
-        id=case.id,
-        category=case.category,
-        role=case.role,
-        expected_hit=case.expected_hit,
-        actual_hit=actual_hit,
-        hit_match=(actual_hit == case.expected_hit),
-        refusal=refusal,
-        refusal_match=(refusal == expected_refusal),
-        source_accurate=source_accurate,
-        source_reason=source_reason,
-        source_count=len(body.get("sources", [])),
-        source_spaces=source_spaces,
-        answer_preview=answer_preview,
-        latency_ms=latency_ms,
-        llm_called=llm_called,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        isolation_ok=check_isolation(case.role, source_spaces),
+    assert current_role is not None
+    return (
+        CaseResult(
+            id=case.id,
+            category=case.category,
+            role=case.role,
+            expected_hit=case.expected_hit,
+            actual_hit=actual_hit,
+            hit_match=(actual_hit == case.expected_hit),
+            refusal=refusal,
+            refusal_match=(refusal == expected_refusal),
+            source_accurate=source_accurate,
+            source_reason=source_reason,
+            source_count=len(body.get("sources", [])),
+            source_spaces=source_spaces,
+            answer_preview=answer_preview,
+            latency_ms=latency_ms,
+            llm_called=llm_called,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            isolation_ok=check_isolation(case.role, source_spaces),
+        ),
+        current_role,
     )
 
 
@@ -479,19 +515,57 @@ def ratio(numerator: int, denominator: int) -> float:
     return numerator / denominator
 
 
-def summarize_results(results: list[CaseResult]) -> dict[str, Any]:
+def estimate_cost_cny(
+    prompt_tokens: int,
+    completion_tokens: int,
+    *,
+    prompt_price_per_1m: float,
+    completion_price_per_1m: float,
+) -> float:
+    return (
+        prompt_tokens * prompt_price_per_1m + completion_tokens * completion_price_per_1m
+    ) / 1_000_000.0
+
+
+def summarize_results(
+    results: list[CaseResult],
+    *,
+    prompt_price_per_1m: float,
+    completion_price_per_1m: float,
+) -> dict[str, Any]:
     categories = sorted({result.category for result in results})
     summary: dict[str, Any] = {
-        "overall": summarize_group("overall", results),
+        "overall": summarize_group(
+            "overall",
+            results,
+            prompt_price_per_1m=prompt_price_per_1m,
+            completion_price_per_1m=completion_price_per_1m,
+        ),
         "by_category": {},
+        "pricing": {
+            "currency": "CNY",
+            "prompt_price_per_1m": prompt_price_per_1m,
+            "completion_price_per_1m": completion_price_per_1m,
+        },
     }
     for category in categories:
         group = [item for item in results if item.category == category]
-        summary["by_category"][category] = summarize_group(category, group)
+        summary["by_category"][category] = summarize_group(
+            category,
+            group,
+            prompt_price_per_1m=prompt_price_per_1m,
+            completion_price_per_1m=completion_price_per_1m,
+        )
     return summary
 
 
-def summarize_group(name: str, group: list[CaseResult]) -> dict[str, Any]:
+def summarize_group(
+    name: str,
+    group: list[CaseResult],
+    *,
+    prompt_price_per_1m: float,
+    completion_price_per_1m: float,
+) -> dict[str, Any]:
     total = len(group)
     hit_count = sum(1 for item in group if item.actual_hit)
     refusal_count = sum(1 for item in group if item.refusal)
@@ -502,11 +576,45 @@ def summarize_group(name: str, group: list[CaseResult]) -> dict[str, Any]:
 
     hit_cases = [item for item in group if item.actual_hit]
     miss_cases = [item for item in group if not item.actual_hit]
+    expected_hits = [item for item in group if item.expected_hit]
+    expected_misses = [item for item in group if not item.expected_hit]
     source_accurate_on_hit = sum(1 for item in hit_cases if item.source_accurate)
+    # Recall@k：期望命中样本中，返回来源含期望空间/标题关键词的比例（k=接口返回条数）
+    recall_hits = sum(1 for item in expected_hits if item.source_accurate)
+    correct_refusals = sum(
+        1
+        for item in expected_misses
+        if item.refusal and (not item.llm_called) and item.isolation_ok
+    )
 
     latencies = [item.latency_ms for item in group if item.latency_ms is not None]
     hit_latencies = [item.latency_ms for item in hit_cases if item.latency_ms is not None]
     miss_latencies = [item.latency_ms for item in miss_cases if item.latency_ms is not None]
+
+    total_prompt = sum(item.prompt_tokens for item in group)
+    total_completion = sum(item.completion_tokens for item in group)
+    hit_prompt = sum(item.prompt_tokens for item in hit_cases)
+    hit_completion = sum(item.completion_tokens for item in hit_cases)
+    refusal_prompt = sum(item.prompt_tokens for item in miss_cases)
+    refusal_completion = sum(item.completion_tokens for item in miss_cases)
+    total_cost = estimate_cost_cny(
+        total_prompt,
+        total_completion,
+        prompt_price_per_1m=prompt_price_per_1m,
+        completion_price_per_1m=completion_price_per_1m,
+    )
+    avg_hit_prompt = (hit_prompt / len(hit_cases)) if hit_cases else 0.0
+    avg_hit_completion = (hit_completion / len(hit_cases)) if hit_cases else 0.0
+    counterfactual_prompt = total_prompt + int(round(avg_hit_prompt * len(expected_misses)))
+    counterfactual_completion = total_completion + int(
+        round(avg_hit_completion * len(expected_misses))
+    )
+    counterfactual_cost = estimate_cost_cny(
+        counterfactual_prompt,
+        counterfactual_completion,
+        prompt_price_per_1m=prompt_price_per_1m,
+        completion_price_per_1m=completion_price_per_1m,
+    )
 
     return {
         "name": name,
@@ -517,6 +625,10 @@ def summarize_group(name: str, group: list[CaseResult]) -> dict[str, Any]:
         "hit_match_count": hit_match_count,
         "refusal_match_count": refusal_match_count,
         "isolation_ok_count": isolation_ok_count,
+        "expected_hit_count": len(expected_hits),
+        "expected_miss_count": len(expected_misses),
+        "recall_hit_count": recall_hits,
+        "correct_refusal_count": correct_refusals,
         "hit_rate": ratio(hit_count, total),
         "refusal_rate": ratio(refusal_count, total),
         "source_accuracy_rate": ratio(source_accurate_count, total),
@@ -524,17 +636,23 @@ def summarize_group(name: str, group: list[CaseResult]) -> dict[str, Any]:
         "refusal_match_rate": ratio(refusal_match_count, total),
         "source_accuracy_rate_on_hit": ratio(source_accurate_on_hit, len(hit_cases)),
         "isolation_ok_rate": ratio(isolation_ok_count, total),
+        "recall_at_k": ratio(recall_hits, len(expected_hits)),
+        "correct_refusal_rate": ratio(correct_refusals, len(expected_misses)),
         "avg_latency_ms": mean(latencies),
         "p95_latency_ms": percentile(latencies, 95),
         "hit_avg_latency_ms": mean(hit_latencies),
         "refusal_avg_latency_ms": mean(miss_latencies),
-        "total_prompt_tokens": sum(item.prompt_tokens for item in group),
-        "total_completion_tokens": sum(item.completion_tokens for item in group),
-        "hit_prompt_tokens": sum(item.prompt_tokens for item in hit_cases),
-        "hit_completion_tokens": sum(item.completion_tokens for item in hit_cases),
-        "refusal_prompt_tokens": sum(item.prompt_tokens for item in miss_cases),
-        "refusal_completion_tokens": sum(item.completion_tokens for item in miss_cases),
+        "total_prompt_tokens": total_prompt,
+        "total_completion_tokens": total_completion,
+        "hit_prompt_tokens": hit_prompt,
+        "hit_completion_tokens": hit_completion,
+        "refusal_prompt_tokens": refusal_prompt,
+        "refusal_completion_tokens": refusal_completion,
         "llm_called_count": sum(1 for item in group if item.llm_called),
+        "total_cost_cny": total_cost,
+        "avg_cost_cny_per_query": (total_cost / total) if total else 0.0,
+        "counterfactual_all_llm_cost_cny": counterfactual_cost,
+        "cost_saved_by_refusal_cny": max(0.0, counterfactual_cost - total_cost),
     }
 
 
@@ -542,6 +660,18 @@ def _fmt_ms(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.1f}"
+
+
+def _fmt_cny(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.6f}"
+
+
+def _fmt_pct(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.2%}"
 
 
 def build_markdown(
@@ -553,15 +683,21 @@ def build_markdown(
 ) -> str:
     generated_at = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
     overall = summary["overall"]
+    pricing = summary.get("pricing", {})
+    title = "Phase 1 评测基线" if overall["total"] > 12 else "Phase 1 最小评测基线"
 
     lines = [
-        "# Phase 1 最小评测基线",
+        f"# {title}",
         "",
         f"- 运行模式：`{mode}`",
         f"- 生成时间：{generated_at}",
         f"- API：`{api_base}`",
         f"- 评测集：`{case_file}`",
         f"- 样本数：{overall['total']}",
+        (
+            f"- 计价假设：prompt ¥{pricing.get('prompt_price_per_1m', '-')}/M · "
+            f"completion ¥{pricing.get('completion_price_per_1m', '-')}/M"
+        ),
         "",
         "## 基线指标（Overall）",
         "",
@@ -569,6 +705,14 @@ def build_markdown(
         "| --- | --- |",
         f"| 命中率 (hit/total) | {overall['hit_count']}/{overall['total']} = {overall['hit_rate']:.2%} |",
         f"| 拒答率 (refusal/total) | {overall['refusal_count']}/{overall['total']} = {overall['refusal_rate']:.2%} |",
+        (
+            f"| Recall@k (期望命中且来源准确) | {overall['recall_hit_count']}/"
+            f"{overall['expected_hit_count']} = {overall['recall_at_k']:.2%} |"
+        ),
+        (
+            f"| 正确拒答率 (期望未命中且固定拒答、未调模型) | {overall['correct_refusal_count']}/"
+            f"{overall['expected_miss_count']} = {overall['correct_refusal_rate']:.2%} |"
+        ),
         f"| 来源准确率 (source-accurate/total) | {overall['source_accurate_count']}/{overall['total']} = {overall['source_accuracy_rate']:.2%} |",
         f"| 隔离通过率 (isolation_ok/total) | {overall['isolation_ok_count']}/{overall['total']} = {overall['isolation_ok_rate']:.2%} |",
         f"| 平均延迟 ms | {_fmt_ms(overall['avg_latency_ms'])} |",
@@ -578,18 +722,21 @@ def build_markdown(
         f"| 命中 prompt+completion token | {overall['hit_prompt_tokens']}+{overall['hit_completion_tokens']} |",
         f"| 拒答 prompt+completion token | {overall['refusal_prompt_tokens']}+{overall['refusal_completion_tokens']} |",
         f"| 调用 LLM 次数 | {overall['llm_called_count']}/{overall['total']} |",
+        f"| 估算总成本 CNY | {_fmt_cny(overall['total_cost_cny'])} |",
+        f"| 估算单次成本 CNY | {_fmt_cny(overall['avg_cost_cny_per_query'])} |",
+        f"| 拒答相对「全量调模型」节省 CNY | {_fmt_cny(overall['cost_saved_by_refusal_cny'])} |",
         "",
         "## 分类别指标",
         "",
-        "| 类别 | 样本数 | 命中率 | 拒答率 | 来源准确率 | 隔离通过率 |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| 类别 | 样本数 | 命中率 | 拒答率 | Recall@k | 正确拒答率 | 隔离通过率 |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
 
     for category, cat_summary in summary["by_category"].items():
         lines.append(
             f"| {category} | {cat_summary['total']} | {cat_summary['hit_rate']:.2%} | "
-            f"{cat_summary['refusal_rate']:.2%} | {cat_summary['source_accuracy_rate']:.2%} | "
-            f"{cat_summary['isolation_ok_rate']:.2%} |"
+            f"{cat_summary['refusal_rate']:.2%} | {cat_summary['recall_at_k']:.2%} | "
+            f"{cat_summary['correct_refusal_rate']:.2%} | {cat_summary['isolation_ok_rate']:.2%} |"
         )
 
     if mode == "oracle":
@@ -621,6 +768,136 @@ def build_markdown(
         )
 
     return "\n".join(lines) + "\n"
+
+
+def _metric_row(label: str, before: str, after: str, note: str = "") -> str:
+    suffix = f" | {note}" if note else " |"
+    return f"| {label} | {before} | {after}{suffix}"
+
+
+def enrich_report_metrics(report: dict[str, Any]) -> dict[str, Any]:
+    """旧基线 JSON 可能缺 Recall/成本字段：若有 results 则按现口径重算 overall。"""
+    results_raw = report.get("results")
+    if not isinstance(results_raw, list) or not results_raw:
+        return report
+    try:
+        results = [CaseResult(**item) for item in results_raw]
+    except TypeError:
+        return report
+    pricing = (report.get("metrics") or {}).get("pricing") or {}
+    prompt_price = float(pricing.get("prompt_price_per_1m", 1.0))
+    completion_price = float(pricing.get("completion_price_per_1m", 2.0))
+    report = dict(report)
+    report["metrics"] = summarize_results(
+        results,
+        prompt_price_per_1m=prompt_price,
+        completion_price_per_1m=completion_price,
+    )
+    return report
+
+
+def build_comparison_markdown(
+    *,
+    current: dict[str, Any],
+    baseline: dict[str, Any] | None,
+    case_file: str,
+) -> str:
+    """一页优化对比：相对课上小样本基线 + 拒答成本收益。"""
+    generated_at = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
+    cur = current["metrics"]["overall"]
+    pricing = current["metrics"].get("pricing", {})
+    base_overall = (baseline or {}).get("metrics", {}).get("overall") if baseline else None
+    base_count = (baseline or {}).get("sample_count")
+    base_mode = (baseline or {}).get("mode", "-")
+
+    def _b(key: str, fmt: str = "pct") -> str:
+        if not base_overall or key not in base_overall or base_overall[key] is None:
+            return "-"
+        value = base_overall[key]
+        if fmt == "pct":
+            return _fmt_pct(float(value))
+        if fmt == "ms":
+            return _fmt_ms(float(value))
+        if fmt == "cny":
+            return _fmt_cny(float(value))
+        return str(value)
+
+    lines = [
+        "# 评测闭环：一页优化对比",
+        "",
+        f"- 生成时间：{generated_at}",
+        f"- 当前评测集：`{case_file}`（{current.get('sample_count')} 条，`{current.get('mode')}`）",
+        (
+            f"- 对照基线：{'`'+str((baseline or {}).get('case_file','-'))+'`' if baseline else '无'} "
+            f"（{base_count or '-'} 条，`{base_mode}`）"
+        ),
+        (
+            f"- 计价：prompt ¥{pricing.get('prompt_price_per_1m', 1.0)}/M · "
+            f"completion ¥{pricing.get('completion_price_per_1m', 2.0)}/M（可用环境变量覆盖）"
+        ),
+        "",
+        "## 结论",
+        "",
+        (
+            f"在 {cur['total']} 条样本上，Recall@k={cur['recall_at_k']:.2%}，"
+            f"正确拒答率={cur['correct_refusal_rate']:.2%}，隔离通过率={cur['isolation_ok_rate']:.2%}；"
+            f"平均延迟 {_fmt_ms(cur['avg_latency_ms'])} ms（P95 {_fmt_ms(cur['p95_latency_ms'])}），"
+            f"估算单次成本 ¥{_fmt_cny(cur['avg_cost_cny_per_query'])}。"
+            f"相对「期望拒答也调模型」的反事实，本轮拒答节省约 ¥{_fmt_cny(cur['cost_saved_by_refusal_cny'])}。"
+        ),
+        "",
+        "## 指标对照",
+        "",
+        "| 指标 | 对照基线 | 当前闭环 | 说明 |",
+        "| --- | --- | --- | --- |",
+        _metric_row("样本数", str(base_count or "-"), str(cur["total"]), "课上 12 → 闭环 50+"),
+        _metric_row("Recall@k", _b("recall_at_k"), _fmt_pct(cur["recall_at_k"]), "期望命中且来源准确"),
+        _metric_row(
+            "正确拒答率",
+            _b("correct_refusal_rate"),
+            _fmt_pct(cur["correct_refusal_rate"]),
+            "含 no_answer / isolation 负样本",
+        ),
+        _metric_row("拒答率", _b("refusal_rate"), _fmt_pct(cur["refusal_rate"]), "实际固定拒答占比"),
+        _metric_row("隔离通过率", _b("isolation_ok_rate"), _fmt_pct(cur["isolation_ok_rate"]), "须 100%"),
+        _metric_row("平均延迟 ms", _b("avg_latency_ms", "ms"), _fmt_ms(cur["avg_latency_ms"]), ""),
+        _metric_row("P95 延迟 ms", _b("p95_latency_ms", "ms"), _fmt_ms(cur["p95_latency_ms"]), ""),
+        _metric_row(
+            "单次成本 CNY",
+            _b("avg_cost_cny_per_query", "cny"),
+            _fmt_cny(cur["avg_cost_cny_per_query"]),
+            "按 token × 单价",
+        ),
+        "",
+        "## 拒答对成本的贡献",
+        "",
+        "| 项 | 数值 |",
+        "| --- | --- |",
+        f"| 实际估算总成本 | ¥{_fmt_cny(cur['total_cost_cny'])} |",
+        f"| 反事实（期望拒答也按命中均摊调模型） | ¥{_fmt_cny(cur['counterfactual_all_llm_cost_cny'])} |",
+        f"| 拒答节省 | ¥{_fmt_cny(cur['cost_saved_by_refusal_cny'])} |",
+        f"| 调用 LLM 次数 | {cur['llm_called_count']}/{cur['total']} |",
+        "",
+        "## 仍薄弱的地方",
+        "",
+        "1. 语料仍是两份 T13 样例文档，Recall 高不代表复杂语料下的检索质量。",
+        "2. 单价为评测假设，需按实际 DeepSeek 账单校准。",
+        "3. 未单独跑「关 hybrid / 关 rerank」对照；工程上可改环境变量后重跑本脚本对比。",
+        "4. 本页由脚本生成；若 live 时关闭了 rerank，Recall/正确拒答率可能低于默认双开配置。",
+        "",
+        "## 复现命令",
+        "",
+        "```powershell",
+        "python .\\scripts\\run_phase1_eval.py --mode live `",
+        "  --case-file docs\\samples\\eval\\phase1_extended_eval_set.jsonl `",
+        "  --output-json docs\\phase1_eval_extended.json `",
+        "  --output-md docs\\phase1_eval_extended.md `",
+        "  --baseline-json docs\\phase1_eval_baseline.json `",
+        "  --write-comparison docs\\16-评测闭环对比.md",
+        "```",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -668,6 +945,9 @@ def main() -> int:
     extra_file = Path(args.gate_extra_file)
     if args.gate:
         cases = merge_cases(cases, load_cases(extra_file))
+    # 同角色连跑，减少登录切换与限流压力
+    role_order = {"student": 0, "employee": 1, "teaching": 2}
+    cases = sorted(cases, key=lambda item: (role_order.get(item.role, 9), item.id))
 
     if args.mode == "live":
         with make_http_client(args.timeout_sec, api_base) as client:
@@ -685,20 +965,31 @@ def main() -> int:
                 wait_for_health_ready(
                     client, api_base=api_base, timeout_sec=args.health_timeout_sec
                 )
-            results = [
-                run_case(
+            results: list[CaseResult] = []
+            logged_in_role: str | None = None
+            for case in cases:
+                result, logged_in_role = run_case(
                     client,
                     api_base,
                     case,
                     demo_password=args.demo_password,
                     health_timeout_sec=args.health_timeout_sec,
+                    logged_in_role=logged_in_role,
                 )
-                for case in cases
-            ]
+                results.append(result)
+                print(
+                    f"[{len(results)}/{len(cases)}] {case.id} hit={result.actual_hit} "
+                    f"refusal={result.refusal} {result.latency_ms:.0f}ms",
+                    flush=True,
+                )
     else:
         results = [run_oracle_case(case) for case in cases]
 
-    summary = summarize_results(results)
+    summary = summarize_results(
+        results,
+        prompt_price_per_1m=args.prompt_price_per_1m,
+        completion_price_per_1m=args.completion_price_per_1m,
+    )
     report = {
         "mode": args.mode,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -716,13 +1007,37 @@ def main() -> int:
     output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     output_md.write_text(markdown, encoding="utf-8")
 
+    if args.write_comparison:
+        baseline_payload: dict[str, Any] | None = None
+        if args.baseline_json:
+            baseline_path = Path(args.baseline_json)
+            if baseline_path.exists():
+                baseline_payload = enrich_report_metrics(
+                    json.loads(baseline_path.read_text(encoding="utf-8"))
+                )
+        comparison_path = Path(args.write_comparison)
+        comparison_path.parent.mkdir(parents=True, exist_ok=True)
+        comparison_path.write_text(
+            build_comparison_markdown(
+                current=report,
+                baseline=baseline_payload,
+                case_file=str(case_file),
+            ),
+            encoding="utf-8",
+        )
+        print(f"comparison={comparison_path}")
+
     overall = summary["overall"]
     print("Phase1 eval done.")
     print(f"hit_rate={overall['hit_rate']:.2%}")
     print(f"refusal_rate={overall['refusal_rate']:.2%}")
+    print(f"recall_at_k={overall['recall_at_k']:.2%}")
+    print(f"correct_refusal_rate={overall['correct_refusal_rate']:.2%}")
     print(f"source_accuracy_rate={overall['source_accuracy_rate']:.2%}")
     print(f"isolation_ok_rate={overall['isolation_ok_rate']:.2%}")
     print(f"avg_latency_ms={overall['avg_latency_ms']}")
+    print(f"p95_latency_ms={overall['p95_latency_ms']}")
+    print(f"avg_cost_cny_per_query={overall['avg_cost_cny_per_query']:.6f}")
     print(
         "tokens hit="
         f"{overall['hit_prompt_tokens']}+{overall['hit_completion_tokens']} "

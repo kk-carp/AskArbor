@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -100,6 +101,78 @@ def test_evaluate_gate_warns_on_low_hit_but_still_passes() -> None:
     )
     assert verdict.passed is True
     assert verdict.warnings
+
+
+def test_estimate_cost_and_recall_metrics() -> None:
+    module = _load_eval_module()
+    results = [
+        _result(
+            module,
+            id="hit-1",
+            category="course",
+            expected_hit=True,
+            actual_hit=True,
+            source_accurate=True,
+            refusal=False,
+            llm_called=True,
+            prompt_tokens=1_000_000,
+            completion_tokens=500_000,
+        ),
+        _result(
+            module,
+            id="miss-1",
+            category="no_answer",
+            expected_hit=False,
+            actual_hit=False,
+            source_accurate=True,
+            refusal=True,
+            llm_called=False,
+            prompt_tokens=0,
+            completion_tokens=0,
+        ),
+    ]
+    summary = module.summarize_results(
+        results, prompt_price_per_1m=1.0, completion_price_per_1m=2.0
+    )
+    overall = summary["overall"]
+    assert overall["recall_at_k"] == 1.0
+    assert overall["correct_refusal_rate"] == 1.0
+    assert overall["total_cost_cny"] == pytest.approx(2.0)
+    assert overall["avg_cost_cny_per_query"] == pytest.approx(1.0)
+    assert overall["cost_saved_by_refusal_cny"] > 0
+
+
+def test_oracle_extended_set_at_least_fifty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_eval_module()
+    monkeypatch.chdir(REPO_ROOT)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_phase1_eval.py",
+            "--mode",
+            "oracle",
+            "--case-file",
+            "docs/samples/eval/phase1_extended_eval_set.jsonl",
+            "--output-json",
+            str(tmp_path / "ext.json"),
+            "--output-md",
+            str(tmp_path / "ext.md"),
+            "--write-comparison",
+            str(tmp_path / "cmp.md"),
+            "--baseline-json",
+            "docs/phase1_eval_baseline.json",
+        ],
+    )
+    assert module.main() == 0
+    report = json.loads((tmp_path / "ext.json").read_text(encoding="utf-8"))
+    assert report["sample_count"] >= 50
+    assert report["metrics"]["overall"]["recall_at_k"] == 1.0
+    assert report["metrics"]["overall"]["correct_refusal_rate"] == 1.0
+    comparison = (tmp_path / "cmp.md").read_text(encoding="utf-8")
+    assert "Recall@k" in comparison
+    assert "单次成本" in comparison
 
 
 def test_oracle_gate_exits_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

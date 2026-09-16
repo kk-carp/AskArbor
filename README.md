@@ -107,8 +107,8 @@ python .\scripts\run_phase1_eval.py --mode live   # 或 oracle；发版可加 --
 ```
 
 - T13 断言说明：[`docs/11-T13验收.md`](docs/11-T13验收.md)
-- 评测集：`docs/samples/eval/phase1_minimal_eval_set.jsonl`（course / policy / no_answer / isolation）
-- 输出：`docs/phase1_eval_baseline.md`、`.json`
+- 评测集：课上 `docs/samples/eval/phase1_minimal_eval_set.jsonl`（12 条）；闭环 `phase1_extended_eval_set.jsonl`（50+，见 `docs/02-评估作业.md` §6）
+- 输出：`docs/phase1_eval_baseline.md` / `.json`；闭环另出 `phase1_eval_extended.*` 与 `docs/16-评测闭环对比.md`
 
 API 示例（教学岗上传、学员提问）：
 

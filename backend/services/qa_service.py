@@ -23,7 +23,7 @@ from backend.infra.generate import (
 )
 from backend.infra.retrieve import RetrievedChunk, run_retrieval
 from backend.domain.followup import expand_followup_query, last_user_question
-from backend.domain.general_assist import should_general_assist
+from backend.domain.general_assist import is_isolation_probe, should_general_assist
 from backend.domain.position import boost_retrieval_query
 from backend.schemas import OwnerInfo, SourceItem
 from backend.services.conversation_service import (
@@ -187,6 +187,18 @@ def _retrieve(
     )
 
 
+def _apply_isolation_probe_gate(
+    *,
+    user_role: str | None,
+    question: str,
+    retrieved: list[RetrievedChunk],
+) -> list[RetrievedChunk]:
+    """学员越权探测问句：即使误召回 student 片段也强制未命中，避免用无关课内文回答内部制度。"""
+    if user_role == "student" and is_isolation_probe(question):
+        return []
+    return retrieved
+
+
 def _ask_result_payload(result: AskResult) -> dict:
     """把 AskResult 转成可 JSON 序列化的 dict，供 SSE final 使用。"""
     return {
@@ -266,6 +278,11 @@ def iter_answer_events(
             normalized_question,
             shot,
             position_key=pos_key,
+        )
+        retrieved = _apply_isolation_probe_gate(
+            user_role=user_role,
+            question=normalized_question,
+            retrieved=retrieved,
         )
         if not retrieved and not shot:
             yield _emit_final(AskResult(answer=MISS_ANSWER, hit=False, sources=[]))
@@ -375,6 +392,11 @@ def iter_answer_events(
             shot,
             position_key=pos_key,
             previous_user_question=last_user_question(history_tuples),
+        )
+        retrieved = _apply_isolation_probe_gate(
+            user_role=user_role,
+            question=normalized_question,
+            retrieved=retrieved,
         )
 
         if not retrieved and not shot:
@@ -606,6 +628,7 @@ def answer_question(
             normalized_question,
             screenshot_text=shot,
             position_key=pos_key,
+            user_role=user_role,
         )
 
     db.init_engine()
@@ -671,6 +694,11 @@ def answer_question(
             shot,
             position_key=pos_key,
             previous_user_question=last_user_question(history_tuples),
+        )
+        retrieved = _apply_isolation_probe_gate(
+            user_role=user_role,
+            question=normalized_question,
+            retrieved=retrieved,
         )
 
         if not retrieved and not shot:
@@ -834,6 +862,7 @@ def _answer_without_conversation(
     *,
     screenshot_text: str | None = None,
     position_key: str | None = None,
+    user_role: str | None = None,
 ) -> AskResult:
     """无 user_id 时保持单轮行为（供旧测试路径）；不建工单、不查负责人。"""
     shot = (screenshot_text or "").strip() or None
@@ -842,6 +871,11 @@ def _answer_without_conversation(
         normalized_question,
         shot,
         position_key=position_key,
+    )
+    retrieved = _apply_isolation_probe_gate(
+        user_role=user_role,
+        question=normalized_question,
+        retrieved=retrieved,
     )
     if not retrieved and not shot:
         return AskResult(answer=MISS_ANSWER, hit=False, sources=[])
