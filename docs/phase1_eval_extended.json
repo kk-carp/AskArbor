@@ -1,6 +1,6 @@
 {
   "mode": "live",
-  "generated_at": "2026-09-15T10:41:30.220825+00:00",
+  "generated_at": "2026-09-16T08:13:55.026742+00:00",
   "api_base": "http://127.0.0.1:8000",
   "case_file": "docs\\samples\\eval\\phase1_extended_eval_set.jsonl",
   "sample_count": 55,
@@ -28,21 +28,21 @@
       "isolation_ok_rate": 1.0,
       "recall_at_k": 1.0,
       "correct_refusal_rate": 1.0,
-      "avg_latency_ms": 1540.3866909084502,
-      "p95_latency_ms": 3142.396000000008,
-      "hit_avg_latency_ms": 2560.857946874876,
-      "refusal_avg_latency_ms": 120.60059565081484,
-      "total_prompt_tokens": 40257,
-      "total_completion_tokens": 8228,
-      "hit_prompt_tokens": 40257,
-      "hit_completion_tokens": 8228,
+      "avg_latency_ms": 20138.495038181747,
+      "p95_latency_ms": 35575.83525999871,
+      "hit_avg_latency_ms": 21516.34893124981,
+      "refusal_avg_latency_ms": 18221.48092608704,
+      "total_prompt_tokens": 41792,
+      "total_completion_tokens": 7363,
+      "hit_prompt_tokens": 41792,
+      "hit_completion_tokens": 7363,
       "refusal_prompt_tokens": 0,
       "refusal_completion_tokens": 0,
       "llm_called_count": 32,
-      "total_cost_cny": 0.056713,
-      "avg_cost_cny_per_query": 0.0010311454545454545,
-      "counterfactual_all_llm_cost_cny": 0.097476,
-      "cost_saved_by_refusal_cny": 0.040762999999999994
+      "total_cost_cny": 0.056518,
+      "avg_cost_cny_per_query": 0.0010276,
+      "counterfactual_all_llm_cost_cny": 0.09714,
+      "cost_saved_by_refusal_cny": 0.040622000000000005
     },
     "by_category": {
       "course": {
@@ -67,20 +67,20 @@
         "isolation_ok_rate": 1.0,
         "recall_at_k": 1.0,
         "correct_refusal_rate": 0.0,
-        "avg_latency_ms": 2940.0185750000674,
-        "p95_latency_ms": 6213.794550003513,
-        "hit_avg_latency_ms": 2940.0185750000674,
+        "avg_latency_ms": 29176.035068749796,
+        "p95_latency_ms": 35970.44345000086,
+        "hit_avg_latency_ms": 29176.035068749796,
         "refusal_avg_latency_ms": null,
-        "total_prompt_tokens": 27360,
-        "total_completion_tokens": 5222,
-        "hit_prompt_tokens": 27360,
-        "hit_completion_tokens": 5222,
+        "total_prompt_tokens": 28455,
+        "total_completion_tokens": 4179,
+        "hit_prompt_tokens": 28455,
+        "hit_completion_tokens": 4179,
         "refusal_prompt_tokens": 0,
         "refusal_completion_tokens": 0,
         "llm_called_count": 16,
-        "total_cost_cny": 0.037804,
-        "avg_cost_cny_per_query": 0.00236275,
-        "counterfactual_all_llm_cost_cny": 0.037804,
+        "total_cost_cny": 0.036813,
+        "avg_cost_cny_per_query": 0.0023008125,
+        "counterfactual_all_llm_cost_cny": 0.036813,
         "cost_saved_by_refusal_cny": 0.0
       },
       "isolation": {
@@ -105,10 +105,10 @@
         "isolation_ok_rate": 1.0,
         "recall_at_k": 0.0,
         "correct_refusal_rate": 1.0,
-        "avg_latency_ms": 106.69052499967317,
-        "p95_latency_ms": 124.91814000240993,
+        "avg_latency_ms": 17066.45278333326,
+        "p95_latency_ms": 32619.633214999158,
         "hit_avg_latency_ms": null,
-        "refusal_avg_latency_ms": 106.69052499967317,
+        "refusal_avg_latency_ms": 17066.45278333326,
         "total_prompt_tokens": 0,
         "total_completion_tokens": 0,
         "hit_prompt_tokens": 0,
@@ -143,10 +143,10 @@
         "isolation_ok_rate": 1.0,
         "recall_at_k": 0.0,
         "correct_refusal_rate": 1.0,
-        "avg_latency_ms": 135.77521817933302,
-        "p95_latency_ms": 232.6446000006399,
+        "avg_latency_ms": 19481.511627272994,
+        "p95_latency_ms": 34080.20055000088,
         "hit_avg_latency_ms": null,
-        "refusal_avg_latency_ms": 135.77521817933302,
+        "refusal_avg_latency_ms": 19481.511627272994,
         "total_prompt_tokens": 0,
         "total_completion_tokens": 0,
         "hit_prompt_tokens": 0,
@@ -181,20 +181,20 @@
         "isolation_ok_rate": 1.0,
         "recall_at_k": 1.0,
         "correct_refusal_rate": 0.0,
-        "avg_latency_ms": 2181.697318749684,
-        "p95_latency_ms": 3033.678024996334,
-        "hit_avg_latency_ms": 2181.697318749684,
+        "avg_latency_ms": 13856.66279374982,
+        "p95_latency_ms": 35786.366224998346,
+        "hit_avg_latency_ms": 13856.66279374982,
         "refusal_avg_latency_ms": null,
-        "total_prompt_tokens": 12897,
-        "total_completion_tokens": 3006,
-        "hit_prompt_tokens": 12897,
-        "hit_completion_tokens": 3006,
+        "total_prompt_tokens": 13337,
+        "total_completion_tokens": 3184,
+        "hit_prompt_tokens": 13337,
+        "hit_completion_tokens": 3184,
         "refusal_prompt_tokens": 0,
         "refusal_completion_tokens": 0,
         "llm_called_count": 16,
-        "total_cost_cny": 0.018909,
-        "avg_cost_cny_per_query": 0.0011818125,
-        "counterfactual_all_llm_cost_cny": 0.018909,
+        "total_cost_cny": 0.019705,
+        "avg_cost_cny_per_query": 0.0012315625,
+        "counterfactual_all_llm_cost_cny": 0.019705,
         "cost_saved_by_refusal_cny": 0.0
       }
     },
@@ -222,11 +222,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "根据片段[1]，作业提交截止时间是：**周五 20:00 之前**（Students must upload homework before Friday 20:00）。",
-      "latency_ms": 2439.882699996815,
+      "answer_preview": "根据片段[1]，作业提交截止时间是：**周五 20:00 前**。   注：片段[1]注明该文件为虚构的 MVP 验收示例。",
+      "latency_ms": 30184.369899998273,
       "llm_called": true,
       "prompt_tokens": 1631,
-      "completion_tokens": 221,
+      "completion_tokens": 303,
       "isolation_ok": true
     },
     {
@@ -246,11 +246,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "FDE Lab Submission 是**作业提交的上传入口**，用于学生上传作业。  根据片段 [1]： - 学生必须在**周五 20:00 前**上传作业。 - 上传入口名称是 **FDE Lab Submission**。 - 文件",
-      "latency_ms": 2718.881099994178,
+      "answer_preview": "FDE Lab Submission 是学生上传作业的入口。根据片段，学生需在周五 20:00 前通过该入口上传作业，文件名须符合 `studentId_name_lab.zip`；截止前允许重新提交，且只保留最后一次上传的文件。",
+      "latency_ms": 24344.641800002137,
       "llm_called": true,
-      "prompt_tokens": 2034,
-      "completion_tokens": 223,
+      "prompt_tokens": 1975,
+      "completion_tokens": 227,
       "isolation_ok": true
     },
     {
@@ -270,11 +270,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "在片段[1]的作业提交要求中，`Required filename pattern: studentId_name_lab.zip` 表示：提交作业时，文件名必须符合 `studentId_name_lab.zip` 这个模式。  字面看，",
-      "latency_ms": 5666.987100004917,
+      "answer_preview": "根据片段[1]的“Assignment submission”部分，`Required filename pattern: studentId_name_lab.zip` 的意思是：  作业提交时，上传的 **ZIP 压缩包文件名**必须符",
+      "latency_ms": 24209.84150000004,
       "llm_called": true,
-      "prompt_tokens": 1990,
-      "completion_tokens": 794,
+      "prompt_tokens": 1999,
+      "completion_tokens": 684,
       "isolation_ok": true
     },
     {
@@ -294,11 +294,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "截止时间是 **Friday 20:00**，即 **周五 20:00**。依据片段[1]。",
-      "latency_ms": 1986.1434000049485,
+      "answer_preview": "截止时间是：**Friday 20:00**，即**周五 20:00**。依据片段[1]。",
+      "latency_ms": 19149.61190000031,
       "llm_called": true,
-      "prompt_tokens": 1639,
-      "completion_tokens": 164,
+      "prompt_tokens": 1654,
+      "completion_tokens": 141,
       "isolation_ok": true
     },
     {
@@ -318,11 +318,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "是。片段[1]明确写明：Required filename pattern: **studentId_name_lab.zip**。",
-      "latency_ms": 1984.4226999994135,
+      "answer_preview": "是。片段[1]明确要求：**Required filename pattern: studentId_name_lab.zip**，即作业压缩包文件名必须符合 **studentId_name_lab.zip** 这一格式。",
+      "latency_ms": 20182.83899999733,
       "llm_called": true,
-      "prompt_tokens": 1965,
-      "completion_tokens": 102,
+      "prompt_tokens": 1819,
+      "completion_tokens": 174,
       "isolation_ok": true
     },
     {
@@ -342,11 +342,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "依据片段[2]：公共问答窗口之外的问题可以发布在**平台上（platform）**。",
-      "latency_ms": 2229.822099994635,
+      "answer_preview": "窗外问题可以发在**平台（the platform）上**。   依据片段[1]：Questions outside this window can be posted on the platform.",
+      "latency_ms": 34536.247100000764,
       "llm_called": true,
-      "prompt_tokens": 1415,
-      "completion_tokens": 170,
+      "prompt_tokens": 1678,
+      "completion_tokens": 148,
       "isolation_ok": true
     },
     {
@@ -366,11 +366,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "按片段[2]，“Public Q and A time”是 **周三 19:00-21:00**，所以答疑是 **周三**。  （片段[1]另提到微信群答疑时间为周一下午2点到6点。）",
-      "latency_ms": 2836.639800007106,
+      "answer_preview": "答疑是**周三**，时间为 **19:00–21:00**。",
+      "latency_ms": 34838.01949999906,
       "llm_called": true,
-      "prompt_tokens": 1597,
-      "completion_tokens": 378,
+      "prompt_tokens": 1695,
+      "completion_tokens": 191,
       "isolation_ok": true
     },
     {
@@ -390,11 +390,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "公开答疑时间为**周三 19:00—21:00**。   （依据片段[2]“Public Q and A time is Wednesday 19:00-21:00”。另片段[1]提到的“周一下午2点到6点”是微信群答疑时间。）",
-      "latency_ms": 3166.392699989956,
+      "answer_preview": "公开答疑时间是**周三 19:00-21:00**（片段[1]）。   另外，片段[2]提到的微信群答疑时间是**周一下午2点到6点**，与“公开答疑”不是同一项。",
+      "latency_ms": 28659.629999998288,
       "llm_called": true,
-      "prompt_tokens": 1582,
-      "completion_tokens": 443,
+      "prompt_tokens": 1669,
+      "completion_tokens": 177,
       "isolation_ok": true
     },
     {
@@ -414,11 +414,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "可以重交。根据片段[1]：“Resubmission is allowed before the deadline. Only the last file is kept.”   也就是说，在截止时间前允许重新提交，且系统只保留最后一次上传",
-      "latency_ms": 2959.0396999992663,
+      "answer_preview": "可以。片段[1]明确写明：“Resubmission is allowed before the deadline. Only the last file is kept.” 即在截止时间前允许重新提交，且只保留最后一次上传的文件。",
+      "latency_ms": 28177.72700000205,
       "llm_called": true,
-      "prompt_tokens": 1980,
-      "completion_tokens": 265,
+      "prompt_tokens": 1990,
+      "completion_tokens": 132,
       "isolation_ok": true
     },
     {
@@ -438,11 +438,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "上传入口名叫 **FDE Lab Submission**。",
-      "latency_ms": 1944.3652000045404,
+      "answer_preview": "上传入口名称是：**FDE Lab Submission**。",
+      "latency_ms": 24742.760199998884,
       "llm_called": true,
-      "prompt_tokens": 2012,
-      "completion_tokens": 96,
+      "prompt_tokens": 2045,
+      "completion_tokens": 95,
       "isolation_ok": true
     },
     {
@@ -459,7 +459,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 90.28150000085589,
+      "latency_ms": 23831.35570000013,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -479,7 +479,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 113.41899998660665,
+      "latency_ms": 25787.290300002496,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -499,7 +499,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 97.34510000271257,
+      "latency_ms": 26823.80230000126,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -519,7 +519,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 121.78149999817833,
+      "latency_ms": 26751.262300000235,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -539,7 +539,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 98.9562000031583,
+      "latency_ms": 31249.55179999961,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -559,7 +559,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 121.08989999978803,
+      "latency_ms": 33091.17170000172,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -579,7 +579,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 123.1815000064671,
+      "latency_ms": 32233.82899999706,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -599,7 +599,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 100.18979999586008,
+      "latency_ms": 33942.27650000175,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -619,7 +619,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 119.20729999837931,
+      "latency_ms": 34061.39600000097,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -639,7 +639,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 97.88409998873249,
+      "latency_ms": 34099.005100000795,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -659,7 +659,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 116.77249999775086,
+      "latency_ms": 31059.94769999961,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -679,7 +679,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 98.53519999887794,
+      "latency_ms": 1028.175800001918,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -699,7 +699,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 92.83819999836851,
+      "latency_ms": 860.0396000001638,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -719,7 +719,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 97.5736000109464,
+      "latency_ms": 940.897499996936,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -739,7 +739,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 127.04069999745116,
+      "latency_ms": 1061.4854999985255,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -759,7 +759,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 98.24389999266714,
+      "latency_ms": 1138.5718999990786,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -779,7 +779,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 100.39209999376908,
+      "latency_ms": 1211.045500000182,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -799,7 +799,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 106.5381999942474,
+      "latency_ms": 2319.4563999968523,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -819,7 +819,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 114.51539999688976,
+      "latency_ms": 1467.9962000009255,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -839,7 +839,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 124.53139999706764,
+      "latency_ms": 868.9314000002923,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -861,10 +861,10 @@
         "company"
       ],
       "answer_preview": "员工远程访问前必须完成**双因素认证（two-factor authentication）**。",
-      "latency_ms": 1759.9905999959446,
+      "latency_ms": 2469.9834999992163,
       "llm_called": true,
       "prompt_tokens": 228,
-      "completion_tokens": 98,
+      "completion_tokens": 96,
       "isolation_ok": true
     },
     {
@@ -882,11 +882,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "根据片段，它是公司政策示例文件（`company_policy_sample.md`）中“Meeting room booking”部分列出的 **Policy confirmation code**，值为 **POLICY-CN-2026",
-      "latency_ms": 3132.111700004316,
+      "answer_preview": "根据片段，`POLICY-CN-2026` 是内部政策示例文件 `company_policy_sample.md` 中“Meeting room booking”（会议室预订）部分列出的 **Policy confirmation cod",
+      "latency_ms": 3084.344899998541,
       "llm_called": true,
       "prompt_tokens": 233,
-      "completion_tokens": 370,
+      "completion_tokens": 237,
       "isolation_ok": true
     },
     {
@@ -904,11 +904,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "要。根据片段[1]中的 VPN access policy 第2条：下载财务数据需要经理审批（Downloading finance data requires manager approval）。",
-      "latency_ms": 1579.8472000024049,
+      "answer_preview": "需要。片段规定：“Downloading finance data requires manager approval.”（下载财务数据需要经理审批）。",
+      "latency_ms": 2530.7991999980004,
       "llm_called": true,
       "prompt_tokens": 226,
-      "completion_tokens": 106,
+      "completion_tokens": 84,
       "isolation_ok": true
     },
     {
@@ -926,11 +926,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "审批人是 **manager**（经理/主管）。片段未提供具体姓名或更细级别。",
-      "latency_ms": 1982.0469999976922,
+      "answer_preview": "审批人是 **manager（经理）**。片段未提供具体姓名或更具体岗位。",
+      "latency_ms": 2770.475199999055,
       "llm_called": true,
       "prompt_tokens": 232,
-      "completion_tokens": 126,
+      "completion_tokens": 147,
       "isolation_ok": true
     },
     {
@@ -948,11 +948,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "会议室需**提前一天**在内部 OA 预订。",
-      "latency_ms": 1517.0134999934817,
+      "answer_preview": "会议室必须提前 **一天** 在内部 OA 预订。",
+      "latency_ms": 1832.9123000003165,
       "llm_called": true,
       "prompt_tokens": 229,
-      "completion_tokens": 100,
+      "completion_tokens": 78,
       "isolation_ok": true
     },
     {
@@ -970,11 +970,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "不可以。依据片段[1]中的内部访问政策第3条：“Internal access passwords must never be stored in public repositories.” 即内部访问密码绝不能存储在公开仓库中。",
-      "latency_ms": 1952.7623000030871,
+      "answer_preview": "不可以。片段中明确规定：**Internal access passwords must never be stored in public repositories.**（内部访问密码绝不能存储在公开仓库中。）",
+      "latency_ms": 2157.1572000029846,
       "llm_called": true,
       "prompt_tokens": 229,
-      "completion_tokens": 173,
+      "completion_tokens": 153,
       "isolation_ok": true
     },
     {
@@ -992,11 +992,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "POLICY-CN-2026 出现在“Meeting room booking”（会议室预订）制度中。依据片段[1]，该确认码列在“Meeting room booking”小节下。",
-      "latency_ms": 2548.793399997521,
+      "answer_preview": "政策确认码 **POLICY-CN-2026** 出现在 **Meeting room booking（会议室预订）** 这一制度中。",
+      "latency_ms": 2066.7334999998275,
       "llm_called": true,
       "prompt_tokens": 235,
-      "completion_tokens": 229,
+      "completion_tokens": 193,
       "isolation_ok": true
     },
     {
@@ -1014,11 +1014,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "根据片段，远程访问前必须满足：**员工需先完成双重认证（two-factor authentication）**。片段未提及其他远程访问的前置条件。",
-      "latency_ms": 2572.9870999930426,
+      "answer_preview": "根据片段，员工在远程访问前必须完成**双因素认证**。片段未提及其他远程访问前置条件。",
+      "latency_ms": 3133.447600001091,
       "llm_called": true,
       "prompt_tokens": 229,
-      "completion_tokens": 208,
+      "completion_tokens": 308,
       "isolation_ok": true
     },
     {
@@ -1036,11 +1036,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "依据片段 [1] 的 VPN access policy：员工在远程访问前必须完成 two-factor authentication（双因素认证）。",
-      "latency_ms": 1589.0705000056187,
+      "answer_preview": "根据片段中的 VPN 访问政策：员工在远程访问前必须完成 two-factor authentication（双因素认证）。",
+      "latency_ms": 2592.6562000022386,
       "llm_called": true,
       "prompt_tokens": 230,
-      "completion_tokens": 97,
+      "completion_tokens": 117,
       "isolation_ok": true
     },
     {
@@ -1058,11 +1058,11 @@
       "source_spaces": [
         "company"
       ],
-      "answer_preview": "VPN 远程访问政策的核心要求有：  1. 员工远程访问前必须完成双因素认证。 2. 下载财务数据需要经理批准。 3. 内部访问密码绝不能存储在公共仓库中。",
-      "latency_ms": 2187.377499998547,
+      "answer_preview": "根据片段，VPN 远程访问政策的核心要求有：  1. 员工远程访问前必须完成双因素认证。 2. 下载财务数据需要经理批准。 3. 内部访问密码绝不能存储在公共仓库中。",
+      "latency_ms": 1916.6894999980286,
       "llm_called": true,
       "prompt_tokens": 228,
-      "completion_tokens": 136,
+      "completion_tokens": 224,
       "isolation_ok": true
     },
     {
@@ -1080,13 +1080,13 @@
       "source_spaces": [
         "student",
         "student",
-        "company"
+        "student"
       ],
-      "answer_preview": "截止时间是 **Friday 20:00**，即 **周五20:00前** 上传作业。",
-      "latency_ms": 1941.2930000107735,
+      "answer_preview": "截止时间：**周五 20:00**。依据片段[1]：Students must upload homework before Friday 20:00.",
+      "latency_ms": 31324.90189999953,
       "llm_called": true,
-      "prompt_tokens": 1242,
-      "completion_tokens": 153,
+      "prompt_tokens": 1609,
+      "completion_tokens": 93,
       "isolation_ok": true
     },
     {
@@ -1103,14 +1103,14 @@
       "source_count": 3,
       "source_spaces": [
         "student",
-        "company",
+        "student",
         "student"
       ],
-      "answer_preview": "文件名必须符合：`studentId_name_lab.zip`。",
-      "latency_ms": 2245.810499996878,
+      "answer_preview": "文件名要求：`studentId_name_lab.zip`。",
+      "latency_ms": 36234.59989999901,
       "llm_called": true,
-      "prompt_tokens": 1610,
-      "completion_tokens": 155,
+      "prompt_tokens": 1839,
+      "completion_tokens": 170,
       "isolation_ok": true
     },
     {
@@ -1130,11 +1130,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "保留**最后一次提交的那份文件**（the last file）。依据片段[1]：“Only the last file is kept.”",
-      "latency_ms": 2133.9911999966716,
+      "answer_preview": "保留**最后一份文件**（即截止时间前重新提交时，最后一次上传的文件）。依据片段[1]：“Only the last file is kept.”",
+      "latency_ms": 35882.39130000147,
       "llm_called": true,
-      "prompt_tokens": 1623,
-      "completion_tokens": 175,
+      "prompt_tokens": 1962,
+      "completion_tokens": 144,
       "isolation_ok": true
     },
     {
@@ -1154,11 +1154,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "依据片段[2]，非公开答疑时段（公开答疑时间为周三19:00-21:00）的问题可以发布在平台上。  若你指的是片段[1]的微信群答疑（周一下午2点到6点），片段未说明非答疑时段如何处理，依据不足。",
-      "latency_ms": 2782.593399999314,
+      "answer_preview": "非答疑时段，可将问题发布在平台上。   依据片段[1]：公开答疑时间为周三 19:00-21:00；该时段之外的问题可以发布到平台。",
+      "latency_ms": 33302.18629999945,
       "llm_called": true,
-      "prompt_tokens": 1620,
-      "completion_tokens": 412,
+      "prompt_tokens": 1455,
+      "completion_tokens": 367,
       "isolation_ok": true
     },
     {
@@ -1178,11 +1178,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "答疑时段：周三 19:00–21:00。",
-      "latency_ms": 2149.815700002364,
+      "answer_preview": "根据片段[1]，Public Q and A 的答疑时段是：**周三 19:00-21:00**。  另外，片段[2]提到微信群答疑时间为：**周一下午2点到6点**。若问的是该微信群答疑，则是这个时段。",
+      "latency_ms": 33688.04539999837,
       "llm_called": true,
-      "prompt_tokens": 1538,
-      "completion_tokens": 199,
+      "prompt_tokens": 1551,
+      "completion_tokens": 620,
       "isolation_ok": true
     },
     {
@@ -1202,11 +1202,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "根据给定片段，学生提交作业文件的方式是：  1. 进入课程页面，在课程目录中每章节最后的【作业】处，点击【作业】任务，在线上传并提交作业。 2. 若按 FDE Lab Submission 要求：须在周五 20:00 前上传；上传入口名称为",
-      "latency_ms": 7854.216899999301,
+      "answer_preview": "根据给定片段，学生提交作业文件应：  1. 进入课程页面，在课程目录中找到每章最后的【作业】。 2. 点击【作业】任务，在线上传并提交作业。 3. **作业需在 PC 端官网完成**。 4. 上传入口名称为 **FDE Lab Submis",
+      "latency_ms": 27358.748400001787,
       "llm_called": true,
-      "prompt_tokens": 1882,
-      "completion_tokens": 1272,
+      "prompt_tokens": 1884,
+      "completion_tokens": 513,
       "isolation_ok": true
     },
     {
@@ -1223,7 +1223,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 249.24129999999423,
+      "latency_ms": 24801.777600001515,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -1243,7 +1243,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 216.0479000012856,
+      "latency_ms": 24053.838399999222,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -1263,7 +1263,7 @@
       "source_count": 0,
       "source_spaces": [],
       "answer_preview": "知识库中没有足够依据回答这个问题。",
-      "latency_ms": 148.20740000868682,
+      "latency_ms": 26410.957100000815,
       "llm_called": false,
       "prompt_tokens": 0,
       "completion_tokens": 0,
@@ -1286,11 +1286,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "根据片段 [1] 的公司政策：下载财务数据前需要满足的条件是：**获得经理批准（manager approval）**。",
-      "latency_ms": 1911.6349000105402,
+      "answer_preview": "根据片段[1]的公司政策，下载财务数据前需要满足：**经理批准（manager approval）**。  另外，若该下载属于**远程访问**，员工还必须先完成**双因素认证**。片段未提及其他下载财务数据的前置条件。",
+      "latency_ms": 34929.99570000029,
       "llm_called": true,
-      "prompt_tokens": 1850,
-      "completion_tokens": 194,
+      "prompt_tokens": 1912,
+      "completion_tokens": 607,
       "isolation_ok": true
     },
     {
@@ -1310,11 +1310,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "是。根据片段[1]，会议室必须在内部 OA 中提前一天预订。",
-      "latency_ms": 2235.411200003,
+      "answer_preview": "是。依据片段[1]，会议室必须提前一天在内部 OA 中预订。",
+      "latency_ms": 35444.45409999753,
       "llm_called": true,
-      "prompt_tokens": 1360,
-      "completion_tokens": 144,
+      "prompt_tokens": 1627,
+      "completion_tokens": 170,
       "isolation_ok": true
     },
     {
@@ -1334,11 +1334,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "根据片段[1]：会议室预订**需要走内部 OA**，并且必须**提前一天**预订。",
-      "latency_ms": 2056.36040000536,
+      "answer_preview": "需要。依据片段[1]：会议室必须通过内部 OA 预订，并且要提前一天。",
+      "latency_ms": 36812.1026000008,
       "llm_called": true,
-      "prompt_tokens": 1610,
-      "completion_tokens": 170,
+      "prompt_tokens": 1633,
+      "completion_tokens": 194,
       "isolation_ok": true
     },
     {
@@ -1358,11 +1358,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "是。片段[1]的 `company_policy_sample.md` 中“VPN access policy”第3条规定：  > Internal access passwords must never be stored in publ",
-      "latency_ms": 3000.8667999936733,
+      "answer_preview": "是。片段[1]的 VPN access policy 第3条明确规定：**Internal access passwords must never be stored in public repositories**，即内部访问密码绝不能被",
+      "latency_ms": 28221.978300000046,
       "llm_called": true,
-      "prompt_tokens": 1904,
-      "completion_tokens": 378,
+      "prompt_tokens": 1964,
+      "completion_tokens": 196,
       "isolation_ok": true
     },
     {
@@ -1382,10 +1382,10 @@
         "student",
         "student"
       ],
-      "answer_preview": "是。依据片段[1]，其中明确写到：“Policy confirmation code is POLICY-CN-2026.”，因此 POLICY-CN-2026 是政策确认码。",
-      "latency_ms": 2081.1192999972263,
+      "answer_preview": "是。依据片段[1]，“Policy confirmation code is POLICY-CN-2026”，即政策确认码是 **POLICY-CN-2026**。",
+      "latency_ms": 28881.04100000055,
       "llm_called": true,
-      "prompt_tokens": 1950,
+      "prompt_tokens": 1999,
       "completion_tokens": 144,
       "isolation_ok": true
     },
@@ -1406,11 +1406,11 @@
         "student",
         "student"
       ],
-      "answer_preview": "依据片段[1]：要求。该片段规定“Employees must complete two-factor authentication before remote access.”即员工远程访问前必须完成双因素认证。   但需注意：该文件标明",
-      "latency_ms": 2799.763699993491,
+      "answer_preview": "是。根据片段[1]的 VPN 访问政策，员工在远程访问前必须完成双因素认证。   （该片段标注为虚构的公司政策样本，仅用于隔离验收。）",
+      "latency_ms": 32861.8338999986,
       "llm_called": true,
-      "prompt_tokens": 1924,
-      "completion_tokens": 333,
+      "prompt_tokens": 1903,
+      "completion_tokens": 236,
       "isolation_ok": true
     }
   ]

@@ -7,7 +7,7 @@
 | --- | --- |
 | 定位 | 把可工具化调用收敛到 MCP Client；工具名 / Skill / HTTP 外观不变 |
 | 挂接 | `run_tool`、`web_search`、arxiv/tavily 搜索源 |
-| 默认 | `mcp_enabled=false` → 行为与改造前一致 |
+| 默认 | `mcp_enabled=false`：走原 `run_tool`，不经 MCP Client |
 | 非目标 | MCP Server 产品化、LangChain、改 `/ask` 检索与拒答主链 |
 
 ---
@@ -75,7 +75,7 @@ flowchart TD
 
 ## 5. 课上演示
 
-1. 默认 `MCP_ENABLED=false`：进阶资料 plan / run 与改造前一致。  
+1. 默认 `MCP_ENABLED=false`：进阶资料 plan / run 仍走原 `run_tool`。  
 2. `.env`：`MCP_ENABLED=true`、`MCP_MODE=shadow`，跑一次 `search_external`，看日志 `mcp_shadow_*`，结果不变。  
 3. `MCP_MODE=merge` 或 `MCP_PER_TOOL_OVERRIDE=search_external=merge`：确认仍返回候选，失败不抬成 KB 未命中。  
 4. 对照：工具名仍是六件套 + `web_search`，没有 `mcp_*` 新 Agent 工具名。

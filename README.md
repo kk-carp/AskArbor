@@ -2,7 +2,7 @@
 
 FDE 课程实践：文档入库、按空间隔离检索、DeepSeek 作答、真实来源与未命中拒答。
 
-已落地：登录授权、文档下线、会话、学员工单、主题负责人、进阶资料推荐、OCR、混合检索与重排、Compose 整包。  
+已落地：登录授权、文档下线、会话、学员工单、主题负责人、进阶资料推荐、OCR、混合检索与重排、会话压缩、跨会话 Memory、MCP Client、Compose 整包、评测闭环。  
 **文档权威入口：** [`docs/README.md`](docs/README.md)（按文件名前缀排序：`01` 课程覆盖 → `02` 评估作业 → `03` 系统架构；其余为补充或历史归档）。
 
 ## 上课最短路径
@@ -108,7 +108,7 @@ python .\scripts\run_phase1_eval.py --mode live   # 或 oracle；发版可加 --
 
 - T13 断言说明：[`docs/11-T13验收.md`](docs/11-T13验收.md)
 - 评测集：课上 `docs/samples/eval/phase1_minimal_eval_set.jsonl`（12 条）；闭环 `phase1_extended_eval_set.jsonl`（50+，见 `docs/02-评估作业.md` §6）
-- 输出：`docs/phase1_eval_baseline.md` / `.json`；闭环另出 `phase1_eval_extended.*` 与 `docs/16-评测闭环对比.md`
+- 输出：课上 `docs/phase1_eval_baseline.md` / `.json`；闭环 `phase1_eval_extended.*`（当前为开 rerank）与 `docs/16-评测闭环对比.md`；关 rerank 对照为 `phase1_eval_extended_rerank_off.*`
 
 API 示例（教学岗上传、学员提问）：
 

@@ -1,6 +1,6 @@
 # 文档索引
 
-按文件名前缀排序即推荐阅读顺序。**上课 / 作业 / 架构**只认 01–03；04–15 为补充；80+ 为历史归档。
+按文件名前缀排序即推荐阅读顺序。**上课 / 作业 / 架构**只认 01–03；04–16 为补充；80+ 为历史归档。
 
 仓库根目录 [README.md](../README.md) 含环境搭建与上课最短路径。
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 04–15 补充参考
+## 04–16 补充参考
 
 | 文件 | 说明 |
 | --- | --- |
@@ -36,7 +36,7 @@
 | [FDE岗位要求与项目功能对照.md](./FDE岗位要求与项目功能对照.md) | JD 硬门槛 ↔ 本仓功能；学员面试/学习速查 |
 | [AI应用开发与FDE学习路径与实践资料推荐.md](./AI应用开发与FDE学习路径与实践资料推荐.md) | 完整学习路径、资料与面试自检（对照表的来源） |
 
-**评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)、[phase1_eval_extended.md](./phase1_eval_extended.md)、[phase1_eval_extended.json](./phase1_eval_extended.json)
+**评测输出（脚本生成，勿当需求读）：** [phase1_eval_baseline.md](./phase1_eval_baseline.md)、[phase1_eval_baseline.json](./phase1_eval_baseline.json)、[phase1_eval_extended.md](./phase1_eval_extended.md)、[phase1_eval_extended.json](./phase1_eval_extended.json)（当前为开 rerank）；关 rerank 对照 [phase1_eval_extended_rerank_off.md](./phase1_eval_extended_rerank_off.md) / [phase1_eval_extended_rerank_off.json](./phase1_eval_extended_rerank_off.json)
 
 **样例：** [samples/t13/](./samples/t13/)、[samples/eval/](./samples/eval/)、[samples/v2a/](./samples/v2a/)
 
@@ -60,4 +60,4 @@
 
 ## 一句话
 
-**先读 01→02→03；实现细节看 04–14；80+ 仅作历史背景。**
+**先读 01→02→03；实现细节看 04–16；80+ 仅作历史背景，不是当前范围。**

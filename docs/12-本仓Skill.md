@@ -142,8 +142,8 @@ skills/*/SKILL.md
 | --- | --- |
 | 打开三个 SKILL.md | 课上能讲清「包 = 工具子集」 |
 | 篡改 skill 加入 `shell` | 加载失败 |
-| 进阶资料 | 只能调用 advanced-resources 所列工具；现网六工具时行为与改造前一致 |
-| `/ask` | 命中/拒答/隔离与改造前一致 |
+| 进阶资料 | 只能调用 advanced-resources 所列工具 |
+| `/ask` | 命中 / 拒答 / 隔离语义不变 |
 
 单测文件建议：`tests/unit/test_skills.py`；必要时扩展 `tests/unit/test_advanced_resources*.py`。
 

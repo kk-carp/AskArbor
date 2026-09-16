@@ -78,7 +78,7 @@ user(本轮依据)
 
 | 配置 | 默认 | 含义 |
 | --- | --- | --- |
-| `memory_enabled` | true | false 时行为与改造前一致 |
+| `memory_enabled` | true | false 时不注入、不提供写入 |
 | `memory_inject_max_items` | 8 | 注入条数上限 |
 | `memory_value_max_chars` | 500 | 单条 value 上限 |
 | `memory_inject_max_chars` | 1500 | 注入正文总字符预算 |
@@ -118,7 +118,7 @@ user(本轮依据)
 1. 登录后打开问答页 →「记忆」→ 保存「学习目标」；**新开会话**再提问，看回答是否带上偏好（对照 Memory system 段）。  
 2. 换用户登录：B 看不到 A 的记忆。  
 3. 指着 `sources`：Memory **不出现**；未命中拒答语义不变。  
-4. 非法 key / 超长 value → 400；`memory_enabled=false` → 与改造前一致。  
+4. 非法 key / 超长 value → 400；`memory_enabled=false` → 不注入。  
 5. （可选）Swagger / curl 对照同一套 `/memories` API。
 
 ---
