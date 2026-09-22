@@ -19,6 +19,7 @@ data/uploads/*
 *.log
 .idea/
 .vscode/
+.cursor/plans/
 *.swp
 
 frontend/node_modules/
